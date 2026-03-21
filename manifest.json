@@ -1,1 +1,9 @@
-
+{
+  "name": "競馬AI指数アプリ V7.3",
+  "short_name": "競馬AIV73",
+  "display": "standalone",
+  "background_color": "#081121",
+  "theme_color": "#0f172a",
+  "start_url": "./index.html",
+  "lang": "ja"
+}
