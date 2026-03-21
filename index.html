@@ -1,1 +1,450 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>競馬AI指数アプリ V7.3</title>
+<meta name="theme-color" content="#0f172a" />
+<link rel="manifest" href="manifest.json" />
+<style>
+:root{--bg:#081121;--card:#0f172a;--line:#243146;--text:#f8fafc;--sub:#cbd5e1;--accent:#f59e0b;--accent2:#38bdf8;--green:#22c55e;--red:#ef4444;--amber:#fbbf24}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:linear-gradient(180deg,#081121 0%,#0b1326 100%);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans","Yu Gothic",sans-serif}
+.app{max-width:720px;margin:0 auto;padding:18px 14px 120px}
+.title{font-size:38px;line-height:1.05;font-weight:900;letter-spacing:-0.02em;margin:8px 0 6px}
+.subtitle{font-size:13px;color:var(--sub);line-height:1.5;margin-bottom:18px}
+.card{background:rgba(15,23,42,.92);border:1px solid var(--line);border-radius:22px;padding:16px;margin-bottom:14px;box-shadow:0 12px 28px rgba(0,0,0,.18)}
+.section-title{font-size:17px;font-weight:800;margin:0 0 12px}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.label{font-size:12px;color:var(--sub);margin:0 0 6px 2px}
+.field{min-width:0}
+input,select,textarea{width:100%;max-width:100%;min-width:0;background:#08101f;border:1px solid #31415d;color:var(--text);border-radius:16px;padding:14px;font-size:16px;outline:none;appearance:none;-webkit-appearance:none}
+select{background-image:linear-gradient(45deg, transparent 50%, #94a3b8 50%),linear-gradient(135deg, #94a3b8 50%, transparent 50%);background-position:calc(100% - 18px) calc(50% - 3px),calc(100% - 12px) calc(50% - 3px);background-size:6px 6px,6px 6px;background-repeat:no-repeat;padding-right:34px}
+textarea{min-height:180px;line-height:1.5;resize:vertical}
+.btn{width:100%;border:none;border-radius:18px;padding:15px 16px;font-size:17px;font-weight:900;cursor:pointer}
+.btn-primary{background:var(--accent);color:#111827}
+.btn-secondary{background:#1d4ed8;color:#fff}
+.btn-ghost{background:#475569;color:#fff}
+.btn-danger{background:#7f1d1d;color:#fff}
+.btn-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+.note{padding:12px 14px;border-radius:16px;background:#3a2203;border:1px solid #8b5a11;color:#fde68a;font-size:13px;line-height:1.6}
+.warn{padding:12px 14px;border-radius:16px;background:#450a0a;border:1px solid #7f1d1d;color:#fecaca;font-size:13px;line-height:1.6;margin-top:10px}
+.ok{padding:12px 14px;border-radius:16px;background:#052e16;border:1px solid #166534;color:#bbf7d0;font-size:13px;line-height:1.6;margin-top:10px}
+.tips{font-size:12px;color:var(--sub);line-height:1.55;margin-top:10px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.kpi{background:#0a1220;border:1px solid var(--line);border-radius:18px;padding:12px;text-align:center}
+.kpi .k{font-size:11px;color:var(--sub)}
+.kpi .v{font-size:20px;font-weight:900;margin-top:6px;word-break:break-word}
+.rankbox,.danbox{background:#0a1220;border:1px solid var(--line);border-radius:18px;padding:12px}
+.ranktitle{font-size:14px;color:var(--sub)}
+.rankname{font-size:18px;font-weight:900;margin-top:6px}
+.horse{background:#0a1220;border:1px solid var(--line);border-radius:18px;padding:14px;margin-top:10px}
+.name{font-size:20px;font-weight:900}
+.muted{font-size:13px;color:var(--sub);margin-top:4px}
+.score{font-size:32px;font-weight:900;margin-top:8px}
+.bar{height:10px;background:#08101f;border:1px solid #22304a;border-radius:999px;overflow:hidden;margin-top:8px}
+.bar>div{height:100%;background:linear-gradient(90deg,var(--green),var(--accent2))}
+.tag{display:inline-block;margin-top:10px;margin-right:6px;padding:6px 9px;border-radius:999px;font-size:11px;font-weight:800}
+.tag.blue{background:#172554;color:#bfdbfe}.tag.green{background:#052e16;color:#86efac}.tag.amber{background:#451a03;color:#fcd34d}.tag.red{background:#450a0a;color:#fca5a5}
+.list-card{background:#0a1220;border:1px solid var(--line);border-radius:18px;padding:14px;margin-top:12px}
+.buy-grid{display:grid;grid-template-columns:1fr;gap:12px}
+.buy-box{background:#08101f;border:1px solid #22304a;border-radius:16px;padding:12px}
+.buy-title{font-weight:900;font-size:15px;margin-bottom:8px}
+.buy-line{font-size:14px;line-height:1.6}
+.preview-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+.preview{width:100%;border:1px solid var(--line);border-radius:16px;display:block;max-height:260px;object-fit:contain;background:#08101f}
+.progress{font-size:12px;color:#93c5fd;margin-top:8px;white-space:pre-wrap}
+.hidden{display:none}
+@media (max-width:430px){.grid3{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.grid3 .field:last-child{grid-column:1/-1}.btn-row{grid-template-columns:1fr}.title{font-size:34px}.kpis{grid-template-columns:1fr 1fr}.preview-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="title">競馬AI指数アプリ</div>
+  <div class="subtitle">V7.3 / 複数スクショOCR + 欠番チェック + 断層表示追加。<br>今の本命とは別に、断層の軸候補 / 相手本線 / 押さえ を出す。</div>
 
+  <div class="card">
+    <div class="section-title">レース設定</div>
+    <div class="grid2">
+      <div class="field"><div class="label">開催日</div><input id="raceDate" type="date" /></div>
+      <div class="field"><div class="label">競馬場</div><select id="racePlace"></select></div>
+    </div>
+    <div class="grid3" style="margin-top:10px">
+      <div class="field"><div class="label">レース番号</div><input id="raceNo" type="number" min="1" placeholder="例 11" /></div>
+      <div class="field"><div class="label">距離(m)</div><input id="raceDistance" type="number" placeholder="例 1500" /></div>
+      <div class="field"><div class="label">クラス</div><input id="raceClass" type="text" placeholder="例 A2下 / C1C2 / G3" /></div>
+    </div>
+    <div class="grid2" style="margin-top:10px">
+      <div class="field"><div class="label">コース種別</div><select id="surface"><option>ダート</option><option>芝</option><option>障害</option></select></div>
+      <div class="field"><div class="label">馬場状態</div><select id="track"><option>良</option><option>稍重</option><option>重</option><option>不良</option><option>稍重(芝)</option><option>重(芝)</option></select></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">出馬表スクショ読取（複数対応）</div>
+    <div class="note">18頭立てで3枚でもOK。OCR後に欠番をチェックして、足りない馬番を警告する。</div>
+    <input id="imageInput" type="file" accept="image/*" multiple />
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="runOCR()">選んだスクショを全部読み取る</button>
+      <button class="btn btn-ghost" onclick="copyNormalized()">変換してコピー</button>
+      <button class="btn btn-danger" onclick="clearAll()">全消去</button>
+    </div>
+    <div id="ocrProgress" class="progress"></div>
+    <div id="ocrCheck"></div>
+    <div id="previewGrid" class="preview-grid"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">出走馬貼り付け</div>
+    <div class="note">基本形式は <strong>馬番 馬名 人気 オッズ 斤量 休み明け日数</strong>。OCR読取後はここに自動で入る。</div>
+    <div style="margin-top:12px"><textarea id="pasteArea" placeholder="OCRで自動入力される / 手貼りでもOK"></textarea></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="parseAndScore()">指数を計算</button>
+      <button class="btn btn-ghost" onclick="fillSample()">見本を入れる</button>
+      <button class="btn btn-ghost" onclick="clearPasteOnly()">貼り付け欄だけ消す</button>
+    </div>
+  </div>
+
+  <div id="resultCard" class="card hidden">
+    <div class="section-title">指数結果</div>
+    <div class="kpis">
+      <div class="kpi"><div class="k">出走頭数</div><div id="kpiCount" class="v">-</div></div>
+      <div class="kpi"><div class="k">本命</div><div id="kpiTop" class="v" style="font-size:18px">-</div></div>
+      <div class="kpi"><div class="k">荒れ気配</div><div id="kpiChaos" class="v">-</div></div>
+      <div class="kpi"><div class="k">条件指数1位</div><div id="kpiConditionTop" class="v" style="font-size:16px">-</div></div>
+    </div>
+
+    <div class="grid3" style="margin-top:12px">
+      <div class="rankbox"><div class="ranktitle">本命</div><div id="pickHonmei" class="rankname">-</div></div>
+      <div class="rankbox"><div class="ranktitle">対抗</div><div id="pickTaiko" class="rankname">-</div></div>
+      <div class="rankbox"><div class="ranktitle">単穴</div><div id="pickTanana" class="rankname">-</div></div>
+    </div>
+
+    <div class="list-card">
+      <div class="name" style="font-size:18px">断層メモ</div>
+      <div class="tips">相棒向けに、今の本命とは別で断層の見方を追加。断層上だけ固定ではなく、下の帯も相手に残す。</div>
+      <div class="grid3" style="margin-top:12px">
+        <div class="danbox"><div class="ranktitle">断層上位帯 → 軸候補</div><div id="danTop" class="rankname">-</div></div>
+        <div class="danbox"><div class="ranktitle">断層下フォロー帯 → 相手本線</div><div id="danFollow" class="rankname">-</div></div>
+        <div class="danbox"><div class="ranktitle">人気薄断層外 → 押さえ</div><div id="danHold" class="rankname">-</div></div>
+      </div>
+      <div id="danMemo" class="muted" style="margin-top:10px;color:#e2e8f0"></div>
+    </div>
+
+    <div class="list-card">
+      <div class="name" style="font-size:18px">おすすめ買い方</div>
+      <div id="betAdvice" class="muted" style="font-size:14px;color:#e2e8f0;margin-top:8px">-</div>
+    </div>
+
+    <div class="list-card">
+      <div class="name" style="font-size:18px">自動買い目</div>
+      <div id="buyList" class="buy-grid"></div>
+    </div>
+
+    <div id="results"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+const places=['札幌','函館','福島','新潟','東京','中山','中京','京都','阪神','小倉','門別','盛岡','水沢','浦和','船橋','大井','川崎','金沢','笠松','名古屋','園田','姫路','高知','佐賀'];
+let selectedImages=[];
+
+function setupPlaces(){document.getElementById('racePlace').innerHTML=places.map(p=>`<option ${p==='浦和'?'selected':''}>${p}</option>`).join('');}
+function n(v){const x=parseFloat(String(v).replace(/[^\d.\-]/g,'')); return isNaN(x)?0:x;}
+function clearAll(){
+  document.getElementById('raceDate').value='';
+  document.getElementById('racePlace').value='浦和';
+  document.getElementById('raceNo').value='';
+  document.getElementById('raceDistance').value='';
+  document.getElementById('raceClass').value='';
+  document.getElementById('surface').value='ダート';
+  document.getElementById('track').value='良';
+  document.getElementById('pasteArea').value='';
+  document.getElementById('imageInput').value='';
+  document.getElementById('ocrProgress').textContent='';
+  document.getElementById('ocrCheck').innerHTML='';
+  document.getElementById('previewGrid').innerHTML='';
+  selectedImages=[];
+  document.getElementById('resultCard').classList.add('hidden');
+  document.getElementById('results').innerHTML='';
+  document.getElementById('buyList').innerHTML='';
+}
+function clearPasteOnly(){document.getElementById('pasteArea').value='';}
+document.getElementById('imageInput').addEventListener('change', async (e)=>{
+  const files=[...(e.target.files||[])];
+  selectedImages=[];
+  const grid=document.getElementById('previewGrid');
+  grid.innerHTML='';
+  for(const file of files){
+    const dataUrl=await fileToDataURL(file);
+    selectedImages.push({name:file.name, dataUrl});
+    const img=document.createElement('img');
+    img.src=dataUrl; img.className='preview';
+    grid.appendChild(img);
+  }
+});
+function fileToDataURL(file){
+  return new Promise((resolve)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result);
+    reader.readAsDataURL(file);
+  });
+}
+function normalizeOCRText(text){
+  return text.replace(/[|｜]/g,' ').replace(/[．。]/g,'.').replace(/[^\S
+]+/g,' ').replace(/
++/g,'
+').trim();
+}
+function extractHorsesFromOCR(text){
+  const lines = normalizeOCRText(text).split('
+').map(v=>v.trim()).filter(Boolean);
+  const horses=[];
+  for(let i=0;i<lines.length;i++){
+    const line=lines[i];
+    const m=line.match(/^(\d{1,2})\s+(.+)$/);
+    if(!m) continue;
+    const no=n(m[1]);
+    let name=m[2].replace(/\s+/g,' ').trim();
+    let joined=line;
+    if(i+1<lines.length) joined += ' ' + lines[i+1];
+    if(i+2<lines.length) joined += ' ' + lines[i+2];
+    const nums = joined.match(/\d+(?:\.\d+)?/g) || [];
+    let odds=0, pop=0, weight=0;
+    nums.forEach(v=>{
+      const num=n(v);
+      if(num>=53 && num<=60 && !weight) weight=num;
+    });
+    const popMatch = joined.match(/(\d{1,2})\s*人気/);
+    if(popMatch) pop=n(popMatch[1]);
+    const oddCandidate = nums.map(n).find(v=>String(v).includes('.') || (v>=1 && v<=500 && v!==weight && v!==no && v!==pop));
+    if(oddCandidate) odds=oddCandidate;
+    horses.push({no,name,pop,odds,weight,layoff:0});
+  }
+  return horses.filter(h=>h.no && h.name);
+}
+function mergeHorses(list){
+  const map=new Map();
+  list.forEach(h=>{
+    if(!map.has(h.no)){
+      map.set(h.no, {...h});
+    }else{
+      const old=map.get(h.no);
+      map.set(h.no,{
+        no:h.no,
+        name: old.name && old.name.length>=h.name.length ? old.name : h.name,
+        pop: old.pop || h.pop,
+        odds: old.odds || h.odds,
+        weight: old.weight || h.weight,
+        layoff: 0
+      });
+    }
+  });
+  let arr=[...map.values()].sort((a,b)=>a.no-b.no);
+  const needReRank = arr.some(h=>!h.pop);
+  if(needReRank){
+    const ranked=[...arr].sort((a,b)=>(a.odds||999)-(b.odds||999));
+    ranked.forEach((h,i)=>{ if(!h.pop) h.pop=i+1; });
+    arr=[...map.values()].sort((a,b)=>a.no-b.no);
+  }
+  return arr;
+}
+function calcMissingNos(arr){
+  if(!arr.length) return [];
+  const nos=arr.map(h=>h.no).filter(v=>v>0).sort((a,b)=>a-b);
+  const max=Math.max(...nos);
+  const missing=[];
+  for(let i=1;i<=max;i++){ if(!nos.includes(i)) missing.push(i); }
+  return missing;
+}
+function renderOCRCheck(arr){
+  const wrap=document.getElementById('ocrCheck');
+  if(!arr.length){ wrap.innerHTML=''; return; }
+  const missing=calcMissingNos(arr);
+  const count=arr.length;
+  if(missing.length){
+    wrap.innerHTML=`<div class="warn">読取警告: ${count}頭しか取れていない可能性あり。<br>抜け馬番: ${missing.join(', ')}<br>この抜け馬番だけ手で足すか、対象部分を拡大したスクショで再読取して。</div>`;
+  }else{
+    wrap.innerHTML=`<div class="ok">読取チェック: 1〜${Math.max(...arr.map(h=>h.no))} で欠番なし。読取頭数 ${count}頭。</div>`;
+  }
+}
+async function runOCR(){
+  if(!selectedImages.length){ alert('先にスクショを選んで'); return; }
+  const progress=document.getElementById('ocrProgress');
+  progress.textContent='複数枚読取開始...';
+  let allHorses=[];
+  for(let i=0;i<selectedImages.length;i++){
+    const img=selectedImages[i];
+    progress.textContent=`${i+1}/${selectedImages.length} 枚目を読取中...`;
+    try{
+      const result = await Tesseract.recognize(img.dataUrl, 'jpn+eng', {
+        logger: m => {
+          if(m.status){
+            progress.textContent=`${i+1}/${selectedImages.length} ${m.status} ${m.progress ? Math.round(m.progress*100)+'%' : ''}`;
+          }
+        }
+      });
+      allHorses.push(...extractHorsesFromOCR(result.data.text));
+    }catch(e){}
+  }
+  const merged=mergeHorses(allHorses);
+  if(!merged.length){
+    progress.textContent='読取できなかった。拡大スクショか、もっと見やすい一覧画面で試して。';
+    document.getElementById('ocrCheck').innerHTML='';
+    return;
+  }
+  document.getElementById('pasteArea').value=merged.map(h=>`${h.no} ${h.name} ${h.pop||0} ${h.odds||0} ${h.weight||0} 0`).join('
+');
+  progress.textContent=`読取完了: ${selectedImages.length}枚 / ${merged.length}頭`;
+  renderOCRCheck(merged);
+}
+function normalizePaste(text){
+  text=text.replace(/	/g,' ').replace(/　/g,' ');
+  const rawLines=text.split(/
++/).map(v=>v.trim()).filter(Boolean); const horses=[];
+  for(let line of rawLines){
+    line=line.replace(/\s+/g,' ').trim();
+    const full=line.match(/^(\d+)\s+(.+?)\s+(\d+(?:\.\d+)?)\s+([0-9]+(?:\.[0-9]+)?)\s+([0-9]+(?:\.[0-9]+)?)\s+(\d+)$/);
+    if(full){horses.push({no:n(full[1]),name:full[2],pop:n(full[3]),odds:n(full[4]),weight:n(full[5]),layoff:n(full[6])});continue;}
+    const tokens=line.split(' ');
+    if(tokens.length>=3){
+      const no=n(tokens[0]); const numberIndexes=tokens.map((t,i)=>({t,i})).filter(o=>/^[0-9]+(?:\.[0-9]+)?$/.test(o.t)); const nums=numberIndexes.map(o=>n(o.t));
+      if(no>0&&nums.length>=1){horses.push({no:no,name:tokens.slice(1,numberIndexes[0].i).join(' ')||('馬番'+no),pop:0,odds:nums[0]||99,weight:nums[1]||0,layoff:nums[2]||0});}
+    }
+  }
+  const needReRank=horses.some(h=>!h.pop)||(new Set(horses.map(h=>h.pop)).size!==horses.length);
+  if(needReRank){const sorted=[...horses].sort((a,b)=>a.odds-b.odds);sorted.forEach((h,i)=>h.pop=i+1);}
+  return horses;
+}
+async function copyNormalized(){
+  const arr=normalizePaste(document.getElementById('pasteArea').value.trim());
+  if(!arr.length){alert('出走馬を貼って');return;}
+  const txt=arr.map(h=>`${h.no} ${h.name} ${h.pop} ${h.odds} ${h.weight} ${h.layoff}`).join('
+');
+  try{await navigator.clipboard.writeText(txt);alert('変換テキストをコピーした');}catch(e){alert('コピーできなかった');}
+}
+function distanceType(dist){if(dist<=1200)return 'sprint'; if(dist<=1600)return 'mile'; if(dist<=2000)return 'middle'; return 'long';}
+function calcScores(h, raceDistance, raceClass, surface, track){
+  let base=40;
+  base += Math.max(0, 12 - h.pop*1.0);
+  if(h.odds<=2) base+=4; else if(h.odds<=5) base+=6; else if(h.odds<=12) base+=8; else if(h.odds<=25) base+=6; else if(h.odds<=50) base+=3; else base+=1;
+  let cond=0;
+  const dist=Number(raceDistance||0), dType=distanceType(dist);
+  if(dType==='sprint'){ if(h.weight<=55) cond+=10; else if(h.weight<=57) cond+=5; else cond-=3; if(h.pop>=3&&h.pop<=8&&h.odds>=5&&h.odds<=30) cond+=4; }
+  else if(dType==='mile'){ if(h.weight<=55) cond+=7; else if(h.weight<=57) cond+=3; else cond-=2; }
+  else if(dType==='middle'){ if(h.weight<=56) cond+=5; else if(h.weight<=57) cond+=2; else cond-=3; if(h.pop<=4) cond+=2; }
+  else { if(h.weight<=55) cond+=6; else if(h.weight<=56) cond+=3; else cond-=4; if(h.pop<=5) cond+=2; }
+  if(surface==='ダート'){ if(h.weight<=55) cond+=6; else if(h.weight<=57) cond+=2; else cond-=3; if(h.pop>=2&&h.pop<=7&&h.odds>=3&&h.odds<=20) cond+=3; }
+  else if(surface==='芝'){ if(h.weight<=54) cond+=7; else if(h.weight<=56) cond+=4; else cond-=3; if(h.pop<=4) cond+=3; }
+  else { if(h.weight<=60) cond+=2; else cond-=2; }
+  if(track==='不良'){ if(h.weight<=55) cond+=8; else cond-=3; if(h.pop>=3&&h.pop<=9) cond+=5; if(h.odds>=6&&h.odds<=30) cond+=4; }
+  else if(track==='重' || track==='重(芝)'){ if(h.weight<=55) cond+=6; else cond-=2; if(h.pop>=2&&h.pop<=8) cond+=4; }
+  else if(track==='稍重' || track==='稍重(芝)'){ if(h.weight<=55) cond+=4; else if(h.weight>=57) cond-=1; if(h.pop>=2&&h.pop<=7) cond+=2; }
+  else { if(h.pop<=3) cond+=4; if(h.odds<=8) cond+=2; }
+  if(h.layoff>=150){base-=8; cond-=4;} else if(h.layoff>=90){base-=5; cond-=2;} else if(h.layoff>=30){base-=2;}
+  if(String(raceClass).includes('A2')) cond-=1;
+  if(String(raceClass).includes('C3')) cond+=1;
+  return {baseScore: Math.max(1, Math.round(base)), condScore: Math.round(cond), totalScore: Math.max(1, Math.round(base+cond))};
+}
+function classifyByRank(arr){
+  return arr.map((h,i)=>{ let label='押さえ', color='blue';
+    if(i===0){label='本命'; color='green';}
+    else if(i===1){label='対抗'; color='blue';}
+    else if(i===2){label='単穴'; color='amber';}
+    else if(i<=4){label='連下'; color='blue';}
+    else if(h.pop>=4){label='穴'; color='amber';}
+    return {...h,label,color};
+  });
+}
+function buildSummary(arr, surface, track){
+  const top=arr[0], spread=top.totalScore-arr[Math.min(arr.length-1,4)].totalScore;
+  let chaos='中'; if(spread<=6) chaos='高'; if(spread>=14) chaos='低';
+  if(surface==='ダート'&&(track==='重'||track==='不良')) chaos=chaos==='低'?'中':'高';
+  let bet='3連複軸1頭 + ワイド保険向き';
+  if(chaos==='高') bet='3連複BOX or 3連単フォーメーション向き';
+  if(chaos==='低') bet='本命軸の3連複・3連単向き';
+  return {count:arr.length, topName:`${top.no}.${top.name}`, chaos, bet};
+}
+function buildDanLayer(arr){
+  const byOdds=[...arr].sort((a,b)=>a.odds-b.odds);
+  if(byOdds.length<4){ return {top:'-',follow:'-',hold:'-',memo:'頭数少ないので断層判定は弱め'}; }
+  let bestIdx=2, bestGap=0;
+  const limit=Math.min(byOdds.length-1, 8);
+  for(let i=1;i<limit;i++){
+    const gap=(byOdds[i+1].odds||999)-(byOdds[i].odds||0);
+    if(gap>bestGap){bestGap=gap; bestIdx=i;}
+  }
+  const topBand=byOdds.slice(0,bestIdx+1);
+  const followBand=byOdds.slice(bestIdx+1, Math.min(bestIdx+5, byOdds.length));
+  const holdBand=byOdds.filter(h=>h.pop>=8 && !topBand.some(t=>t.no===h.no) && !followBand.some(f=>f.no===h.no)).slice(0,4);
+  return {
+    top: topBand.map(h=>`${h.no}.${h.name}`).join(' / ') || '-',
+    follow: followBand.map(h=>`${h.no}.${h.name}`).join(' / ') || '-',
+    hold: holdBand.map(h=>`${h.no}.${h.name}`).join(' / ') || '-',
+    memo: `断層幅 ${bestGap.toFixed(1)}。上位帯は ${topBand.length}頭。断層上だけ固定せず、下の帯も相手に残す。`
+  };
+}
+function buildBuyList(arr){
+  const a=arr[0], b=arr[1], c=arr[2], d=arr[3], e=arr[4];
+  const wide=[a&&b?`${a.no}-${b.no}`:'', a&&c?`${a.no}-${c.no}`:'', b&&c?`${b.no}-${c.no}`:''].filter(Boolean);
+  const trio=[a&&b&&c?`${a.no}-${b.no}-${c.no}`:'', a&&b&&d?`${a.no}-${b.no}-${d.no}`:'', a&&c&&d?`${a.no}-${c.no}-${d.no}`:'', a&&b&&e?`${a.no}-${b.no}-${e.no}`:''].filter(Boolean);
+  const trifecta=[]; [b,c,d].filter(Boolean).forEach(x=>{[b,c,d,e].filter(Boolean).forEach(y=>{if(x.no!==y.no && a.no!==x.no && a.no!==y.no){trifecta.push(`${a.no}→${x.no}→${y.no}`);}})});
+  return `<div class="buy-box"><div class="buy-title">ワイド</div><div class="buy-line">${wide.join('<br>')||'—'}</div></div><div class="buy-box"><div class="buy-title">3連複</div><div class="buy-line">${trio.join('<br>')||'—'}</div></div><div class="buy-box"><div class="buy-title">3連単フォーメーション候補</div><div class="buy-line">${trifecta.slice(0,10).join('<br>')||'—'}</div></div>`;
+}
+function fillSample(){
+  document.getElementById('pasteArea').value=`1 カフェラバー 8 23.4 55.0 0
+2 メイクワンズデイ 9 24.0 57.0 0
+3 トライアンフパス 12 62.2 55.0 0
+4 タイセイアストロ 2 7.1 57.0 0
+5 アスミル 15 90.4 57.0 0
+6 ハッピーエンジェル 6 16.4 55.0 0
+7 フクチャンショウ 3 11.1 57.0 0
+8 マーゴットブロー 14 78.0 57.0 0
+9 ダイヤモンドノット 1 1.8 57.0 0
+10 エイシンディード 7 18.4 57.0 0
+11 タガノアラリア 4 11.5 57.0 0
+12 プルヴォワール 17 181.5 55.0 0
+13 プリンセスモコ 10 24.0 55.0 0
+14 フォーゲル 11 47.6 57.0 0
+15 テルヴィセクス 13 65.0 57.0 0
+16 タヤスロレンヌ 16 162.5 55.0 0
+17 タマモイカロス 5 13.0 57.0 0`;
+}
+function parseAndScore(){
+  const text=document.getElementById('pasteArea').value.trim(); if(!text){alert('出走馬を貼って');return;}
+  let arr=normalizePaste(text); if(!arr.length){alert('読み取れなかった');return;}
+  const raceDistance=document.getElementById('raceDistance').value, raceClass=document.getElementById('raceClass').value, surface=document.getElementById('surface').value, track=document.getElementById('track').value;
+  arr=arr.map(h=>({...h,...calcScores(h,raceDistance,raceClass,surface,track)})).sort((a,b)=>b.totalScore-a.totalScore);
+  arr=classifyByRank(arr);
+  const summary=buildSummary(arr,surface,track);
+  const dan=buildDanLayer(arr);
+  document.getElementById('resultCard').classList.remove('hidden');
+  document.getElementById('kpiCount').textContent=summary.count;
+  document.getElementById('kpiTop').textContent=summary.topName;
+  document.getElementById('kpiChaos').textContent=summary.chaos;
+  const condTop=[...arr].sort((a,b)=>b.condScore-a.condScore)[0];
+  document.getElementById('kpiConditionTop').textContent=condTop?`${condTop.no}.${condTop.name}`:'-';
+  document.getElementById('pickHonmei').textContent=arr[0]?`${arr[0].no}.${arr[0].name}`:'-';
+  document.getElementById('pickTaiko').textContent=arr[1]?`${arr[1].no}.${arr[1].name}`:'-';
+  document.getElementById('pickTanana').textContent=arr[2]?`${arr[2].no}.${arr[2].name}`:'-';
+  document.getElementById('betAdvice').textContent=summary.bet;
+  document.getElementById('buyList').innerHTML=buildBuyList(arr);
+  document.getElementById('danTop').textContent=dan.top;
+  document.getElementById('danFollow').textContent=dan.follow;
+  document.getElementById('danHold').textContent=dan.hold;
+  document.getElementById('danMemo').textContent=dan.memo;
+  const results=document.getElementById('results'); results.innerHTML='';
+  arr.forEach((h,i)=>{
+    const reasons=[]; if(h.baseScore>=50) reasons.push('基礎点上位'); if(h.condScore>=10) reasons.push('条件向く'); if(h.weight>0&&h.weight<=55) reasons.push('斤量有利'); if(h.pop>=3&&h.pop<=8&&h.odds>=5&&h.odds<=30) reasons.push('妙味あり');
+    const div=document.createElement('div'); div.className='horse';
+    div.innerHTML=`<div class="name">${i+1}位 ${h.no}. ${h.name}</div><div class="muted">人気 ${h.pop} / 単勝 ${h.odds} / 斤量 ${h.weight} / 休み明け ${h.layoff}日</div><div class="muted">基礎点 ${h.baseScore} / 条件点 ${h.condScore}</div><div class="score">${h.totalScore}</div><div class="bar"><div style="width:${Math.max(6,Math.min(100,h.totalScore))}%"></div></div><span class="tag ${h.color}">${h.label}</span><div class="muted" style="margin-top:10px">${reasons.join(' / ')||'材料少なめ'}</div>`;
+    results.appendChild(div);
+  });
+  document.getElementById('resultCard').scrollIntoView({behavior:'smooth'});
+}
+setupPlaces();
+</script>
+</body>
+</html>
