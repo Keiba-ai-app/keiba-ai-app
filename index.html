@@ -1,1 +1,356 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>競馬AI指数アプリ V1 Stable</title>
+<style>
+  :root{
+    --bg:#081121; --card:#0f172a; --card2:#111c34; --line:#24324d; --txt:#f8fafc; --muted:#b9c2d0;
+    --blue:#2563eb; --green:#166534; --red:#991b1b; --amber:#8a5a00;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:linear-gradient(180deg,#0b1224,#081121);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif}
+  .wrap{max-width:980px;margin:0 auto;padding:16px}
+  .banner{background:#14532d;border-radius:16px;padding:12px 14px;font-weight:800;margin-bottom:14px}
+  .card{background:rgba(15,23,42,.92);border:1px solid var(--line);border-radius:24px;padding:18px;margin-bottom:16px}
+  .title{font-size:30px;font-weight:900;margin:0 0 10px}
+  .sub{color:var(--muted);font-size:14px}
+  .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .box{background:rgba(2,10,28,.55);border:1px solid #233252;border-radius:20px;padding:14px;min-height:96px}
+  .k{font-size:14px;color:var(--muted);margin-bottom:8px}
+  .v{font-size:18px;font-weight:900;white-space:pre-wrap;word-break:break-word}
+  label{display:block;font-weight:800;margin:8px 0 6px}
+  select,textarea,input{width:100%;background:#0a1327;color:#fff;border:1px solid #334155;border-radius:16px;padding:12px 14px;font-size:16px}
+  textarea{min-height:180px;resize:vertical}
+  .btnrow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}
+  button{appearance:none;border:none;border-radius:18px;padding:16px 12px;font-size:18px;font-weight:900;color:#fff;cursor:pointer}
+  .bblue{background:#2554d8}.bred{background:#991b1b}.bgray{background:#475569}.borange{background:#f59e0b;color:#111827}
+  .note{background:#5b3a00;border:2px solid #9a6a00;border-radius:18px;padding:14px;margin-top:10px;color:#fff;font-weight:700}
+  .ok{background:#064e3b;border:2px solid #0f7a5c;border-radius:18px;padding:12px;margin-top:10px}
+  .warn{background:#5f0f0f;border:2px solid #a11b1b;border-radius:18px;padding:12px;margin-top:10px}
+  .small{font-size:13px;color:var(--muted)}
+  @media (max-width:780px){
+    .grid,.grid2,.grid3,.btnrow{grid-template-columns:1fr}
+    .title{font-size:24px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="banner">V1 Stable / 最小構成の安定版。競馬場選択・貼り付け・指数計算・候補表示・自動買い目だけ。</div>
 
+  <div class="card">
+    <div class="title">競馬AI指数アプリ</div>
+    <div class="sub">OCRなし。壊れない土台優先。</div>
+    <div class="grid">
+      <div>
+        <label>競馬場</label>
+        <select id="track">
+          <option value="大井">大井</option>
+          <option value="浦和">浦和</option>
+          <option value="川崎">川崎</option>
+          <option value="船橋">船橋</option>
+          <option value="高知">高知</option>
+          <option value="園田">園田</option>
+          <option value="姫路">姫路</option>
+          <option value="名古屋">名古屋</option>
+          <option value="笠松">笠松</option>
+          <option value="佐賀">佐賀</option>
+          <option value="水沢">水沢</option>
+          <option value="盛岡">盛岡</option>
+          <option value="門別">門別</option>
+          <option value="帯広">帯広</option>
+          <option value="中央">中央</option>
+        </select>
+      </div>
+      <div>
+        <label>レース番号</label>
+        <input id="raceNo" value="1R">
+      </div>
+      <div>
+        <label>頭数</label>
+        <input id="fieldCount" type="number" min="2" value="12">
+      </div>
+      <div>
+        <label>荒れ気配</label>
+        <select id="arerev">
+          <option value="低">低</option>
+          <option value="中" selected>中</option>
+          <option value="高">高</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="note">形式: 馬番 馬名 人気 オッズ 斤量 増減　例: 7 トウテイラン 8 14.1 54 -1</div>
+
+    <label>出走馬貼り付け</label>
+    <textarea id="pasteArea" placeholder="1 ブレスト 14 178.1 54 -1&#10;2 コロニス 11 23.3 53 +4"></textarea>
+
+    <label>直前比較（任意）</label>
+    <textarea id="preOdds" placeholder="1つ前のオッズ。形式: 馬番 オッズ&#10;例: 7 7.8"></textarea>
+
+    <div class="btnrow">
+      <button class="borange" id="calcBtn" type="button">指数を計算</button>
+      <button class="bblue" id="copyBtn" type="button">変換してコピー</button>
+      <button class="bred" id="clearBtn" type="button">全消去</button>
+    </div>
+
+    <div id="status"></div>
+  </div>
+
+  <div class="card">
+    <div class="title" style="font-size:24px">指数結果</div>
+    <div class="grid2">
+      <div class="box"><div class="k">出走頭数</div><div id="fieldOut" class="v">-</div></div>
+      <div class="box"><div class="k">本命</div><div id="honmei" class="v">-</div></div>
+      <div class="box"><div class="k">総合評価軸 1位</div><div id="axis1" class="v">-</div></div>
+      <div class="box"><div class="k">総合評価軸 2位</div><div id="axis2" class="v">-</div></div>
+      <div class="box"><div class="k">単穴</div><div id="single" class="v">-</div></div>
+      <div class="box"><div class="k">中穴頭候補</div><div id="midhead" class="v">-</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="title" style="font-size:24px">断層メモ</div>
+    <div class="grid2">
+      <div class="box"><div class="k">断層軸候補 1位</div><div id="dan1" class="v">-</div></div>
+      <div class="box"><div class="k">断層軸候補 2位</div><div id="dan2" class="v">-</div></div>
+      <div class="box"><div class="k">断層相手本線</div><div id="danFollow" class="v">-</div></div>
+      <div class="box"><div class="k">断層押さえ</div><div id="danHold" class="v">-</div></div>
+      <div class="box"><div class="k">荒れ推奨 1位</div><div id="are1" class="v">-</div></div>
+      <div class="box"><div class="k">荒れ推奨 2位</div><div id="are2" class="v">-</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="title" style="font-size:24px">着順候補メモ</div>
+    <div class="grid2">
+      <div class="box"><div class="k">中穴頭候補</div><div id="midhead2" class="v">-</div></div>
+      <div class="box"><div class="k">1着候補</div><div id="rank1" class="v">-</div></div>
+      <div class="box"><div class="k">2着候補</div><div id="rank2" class="v">-</div></div>
+      <div class="box"><div class="k">3着候補</div><div id="rank3" class="v">-</div></div>
+      <div class="box"><div class="k">11タイプ候補 1位</div><div id="ele1" class="v">-</div></div>
+      <div class="box"><div class="k">11タイプ候補 2位</div><div id="ele2" class="v">-</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="title" style="font-size:24px">自動買い目まとめ</div>
+    <div class="grid3">
+      <div class="box"><div class="k">3連単フォーメーション</div><div id="betF" class="v">-</div></div>
+      <div class="box"><div class="k">3連単1頭軸マルチ</div><div id="betM" class="v">-</div></div>
+      <div class="box"><div class="k">3連複軸流し</div><div id="betT" class="v">-</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const setText = (id, v) => $(id).textContent = (v && String(v).trim()) ? v : '-';
+
+function n(v){ const x = parseFloat(String(v).replace(/[^\d\.\-\+]/g,'')); return Number.isFinite(x) ? x : 0; }
+
+function saveFields(){
+  const data = {
+    track:$('track').value, raceNo:$('raceNo').value, fieldCount:$('fieldCount').value,
+    arerev:$('arerev').value, pasteArea:$('pasteArea').value, preOdds:$('preOdds').value
+  };
+  localStorage.setItem('keiba_stable_v1', JSON.stringify(data));
+}
+function restoreFields(){
+  try{
+    const data = JSON.parse(localStorage.getItem('keiba_stable_v1') || '{}');
+    ['raceNo','fieldCount','pasteArea','preOdds'].forEach(id => { if(data[id]!=null) $(id).value = data[id]; });
+    if(data.track) $('track').value = data.track;
+    if(data.arerev) $('arerev').value = data.arerev;
+  }catch(e){}
+}
+['track','raceNo','fieldCount','arerev','pasteArea','preOdds'].forEach(id => {
+  window.addEventListener('load', () => $(id).addEventListener('input', saveFields));
+});
+
+function parseRows(text){
+  const lines = String(text||'').split(/\n+/).map(v => v.trim()).filter(Boolean);
+  const rows = [];
+  for(const line of lines){
+    const m = line.match(/^(\d+)\s+(.+?)\s+(\d+)\s+([0-9]+(?:\.[0-9]+)?)\s+([0-9]+(?:\.[0-9]+)?)\s+([+\-]?\d+)$/);
+    if(!m) continue;
+    rows.push({
+      no:n(m[1]), name:m[2].trim(), pop:n(m[3]), odds:n(m[4]), weight:n(m[5]), delta:n(m[6])
+    });
+  }
+  return rows.sort((a,b)=>a.no-b.no);
+}
+function parsePreOdds(text){
+  const m = new Map();
+  String(text||'').split(/\n+/).map(v=>v.trim()).filter(Boolean).forEach(line=>{
+    const x = line.match(/^(\d+)\s+([0-9]+(?:\.[0-9]+)?)$/);
+    if(x) m.set(n(x[1]), n(x[2]));
+  });
+  return m;
+}
+function validateRows(rows){
+  if(rows.length < 6) return '読取頭数が少ない。';
+  const nos = rows.map(r=>r.no);
+  if(new Set(nos).size !== rows.length) return '馬番が重複してる。';
+  if(rows.some(r=>!r.name || /^馬番\d+$/.test(r.name))) return '馬名が不自然。';
+  if(rows.some(r=>r.pop < 1 || r.odds <= 0 || r.weight <= 0)) return '人気・オッズ・斤量のどれかが壊れてる。';
+  return '';
+}
+function uniqueKeep(arr){ const out=[]; for(const v of arr){ if(v && !out.includes(v)) out.push(v);} return out; }
+
+function scoreRows(rows, preOddsMap, areLevel){
+  const base = rows.map(r => {
+    let score = 0;
+    score += Math.max(0, 18 - r.pop * 1.7);                 // 人気
+    score += Math.max(0, 22 - Math.abs(r.odds - 8) * 0.9);  // オッズ帯
+    if(r.pop >= 4 && r.pop <= 7) score += 10;               // 中穴帯
+    if(r.pop >= 5 && r.pop <= 7) score += 8;                // 3着中穴強化
+    if(r.pop >= 8 && r.pop <= 11) score += 4;               // 穴残し
+    if(r.pop === 1) score -= 7;                             // 1番人気過信を下げる
+    if(r.odds < 2.5) score -= 4;
+    if(r.weight >= 53 && r.weight <= 57) score += 4;
+    if(r.delta >= 3 && r.delta <= 8) score += 2;
+    if(r.delta <= -8) score -= 3;
+    const prev = preOddsMap.get(r.no);
+    if(prev && prev > r.odds) score += Math.min(4, (prev - r.odds) * 0.6); // 売れ
+    return {...r, totalScore: Math.round(score*10)/10};
+  }).sort((a,b)=>b.totalScore-a.totalScore);
+
+  const oddsAsc = [...rows].sort((a,b)=>a.odds-b.odds);
+  const gaps = [];
+  for(let i=0;i<oddsAsc.length-1;i++){
+    gaps.push({idx:i, gap:oddsAsc[i+1].odds - oddsAsc[i].odds});
+  }
+  gaps.sort((a,b)=>b.gap-a.gap);
+  const cut = gaps[0] ? gaps[0].idx : Math.min(1, oddsAsc.length-1);
+  const danTop = oddsAsc.slice(0, cut+1);
+  const danRest = oddsAsc.slice(cut+1);
+
+  const danAxis = [...danTop].sort((a,b)=>{
+    const as = (base.find(x=>x.no===a.no)?.totalScore||0);
+    const bs = (base.find(x=>x.no===b.no)?.totalScore||0);
+    return bs-as;
+  });
+
+  const holeRank = [...rows].map(r=>{
+    let s = 0;
+    if(r.pop>=4 && r.pop<=7) s += 18;
+    if(r.odds>=7 && r.odds<=14) s += 18;
+    if(r.pop===1) s -= 10;
+    if(preOddsMap.get(r.no) && preOddsMap.get(r.no) > r.odds) s += 3;
+    return {...r, holeScore:s};
+  }).sort((a,b)=>b.holeScore-a.holeScore);
+
+  const areRank = [...rows].map(r=>{
+    let s = 0;
+    if(r.pop>=8 && r.pop<=13) s += 14;
+    if(r.odds>=12 && r.odds<=40) s += 10;
+    if(r.delta>=3 && r.delta<=10) s += 3;
+    if(areLevel==='高') s += 4;
+    if(areLevel==='低') s -= 2;
+    return {...r, areScore:s};
+  }).sort((a,b)=>b.areScore-a.areScore);
+
+  const eleRank = [...rows].map(r=>{
+    let s = 0;
+    if(r.pop>=4 && r.pop<=8) s += 12;
+    if(r.odds>=8 && r.odds<=18) s += 12;
+    if(preOddsMap.get(r.no) && preOddsMap.get(r.no) > r.odds) s += 2;
+    return {...r, eleScore:s};
+  }).sort((a,b)=>b.eleScore-a.eleScore);
+
+  return {base, danAxis, danTop, danRest, holeRank, areRank, eleRank};
+}
+function toDisp(r){ return `${r.no}.${r.name}`; }
+
+function calc(){
+  const rows = parseRows($('pasteArea').value);
+  const err = validateRows(rows);
+  if(err){
+    $('status').innerHTML = `<div class="warn">${err}</div>`;
+    return;
+  }
+  const pre = parsePreOdds($('preOdds').value);
+  const scored = scoreRows(rows, pre, $('arerev').value);
+
+  const base = scored.base;
+  const axis1 = base[0], axis2 = base[1], single = base[2];
+  const honmei = axis1;
+  const midhead = scored.holeRank[0];
+  const rank1 = uniqueKeep([midhead, axis1, axis2, single]).slice(0,3);
+  const rank2 = uniqueKeep([axis1, axis2, single, base[3], midhead, base[4]]).slice(0,6);
+  const rank3 = uniqueKeep([
+    ...base.filter(r=>r.pop>=5&&r.pop<=7).slice(0,3),
+    ...base.slice(0,6),
+    ...scored.areRank.slice(0,2)
+  ]).slice(0,8);
+
+  setText('fieldOut', String(rows.length));
+  setText('honmei', toDisp(honmei));
+  setText('axis1', toDisp(axis1));
+  setText('axis2', toDisp(axis2));
+  setText('single', toDisp(single));
+  setText('midhead', toDisp(midhead));
+
+  setText('dan1', scored.danAxis[0] ? toDisp(scored.danAxis[0]) : '-');
+  setText('dan2', scored.danAxis[1] ? toDisp(scored.danAxis[1]) : '-');
+  setText('danFollow', scored.danRest.slice(0,4).map(toDisp).join(' / '));
+  setText('danHold', scored.danRest.slice(4,7).map(toDisp).join(' / '));
+  setText('are1', scored.areRank[0] ? toDisp(scored.areRank[0]) : '-');
+  setText('are2', scored.areRank[1] ? toDisp(scored.areRank[1]) : '-');
+
+  setText('midhead2', toDisp(midhead));
+  setText('rank1', rank1.map(toDisp).join(' / '));
+  setText('rank2', rank2.map(toDisp).join(' / '));
+  setText('rank3', rank3.map(toDisp).join(' / '));
+  setText('ele1', scored.eleRank[0] ? toDisp(scored.eleRank[0]) : '-');
+  setText('ele2', scored.eleRank[1] ? toDisp(scored.eleRank[1]) : '-');
+
+  const f1 = uniqueKeep(rank1.map(r=>r.no));
+  const f2 = uniqueKeep(rank2.map(r=>r.no));
+  const f3 = uniqueKeep(rank3.map(r=>r.no));
+  setText('betF', `1着 ${f1.join(',')} / 2着 ${f2.join(',')} / 3着 ${f3.join(',')}`);
+  const axisNo = axis1.no;
+  const multi = uniqueKeep([...f1, ...f2, ...f3].filter(n=>n!==axisNo)).slice(0,5);
+  setText('betM', `${axisNo}軸 → ${multi.join(',')}`);
+  const trioAxis = uniqueKeep([axis1.no, axis2.no]).slice(0,2);
+  const trioO = uniqueKeep([...f1, ...f2, ...f3].filter(n=>!trioAxis.includes(n))).slice(0,6);
+  setText('betT', `軸 ${trioAxis.join('-')} → ${trioO.join(',')}`);
+
+  $('status').innerHTML = `<div class="ok">計算完了。安定版で候補と買い目を更新した。</div>`;
+}
+async function copyNormalized(){
+  const rows = parseRows($('pasteArea').value);
+  const err = validateRows(rows);
+  if(err){
+    $('status').innerHTML = `<div class="warn">${err}</div>`;
+    return;
+  }
+  const text = rows.map(r => `${r.no} ${r.name} ${r.pop} ${r.odds} ${r.weight} ${r.delta}`).join('\n');
+  try{
+    await navigator.clipboard.writeText(text);
+    $('status').innerHTML = `<div class="ok">変換テキストをコピーした。</div>`;
+  }catch(e){
+    $('status').innerHTML = `<div class="warn">コピーできなかった。手動でコピーして。</div>`;
+  }
+}
+function clearAll(){
+  $('raceNo').value='1R'; $('fieldCount').value='12'; $('arerev').value='中';
+  $('pasteArea').value=''; $('preOdds').value=''; $('status').innerHTML='';
+  ['fieldOut','honmei','axis1','axis2','single','midhead','dan1','dan2','danFollow','danHold','are1','are2','midhead2','rank1','rank2','rank3','ele1','ele2','betF','betM','betT']
+    .forEach(id => setText(id,'-'));
+  saveFields();
+}
+window.addEventListener('load', ()=>{
+  restoreFields();
+  $('calcBtn').onclick = calc;
+  $('copyBtn').onclick = copyNormalized;
+  $('clearBtn').onclick = clearAll;
+});
+</script>
+</body>
+</html>
