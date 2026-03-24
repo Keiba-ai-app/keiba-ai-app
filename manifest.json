@@ -1,1 +1,9 @@
-
+{
+  "name": "競馬AI指数アプリ V1.3 Stable",
+  "short_name": "競馬Stable",
+  "display": "standalone",
+  "background_color": "#081121",
+  "theme_color": "#0f172a",
+  "start_url": "./index.html?v=stable13",
+  "lang": "ja"
+}
