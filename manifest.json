@@ -1,1 +1,9 @@
-
+{
+  "name": "競馬AI指数アプリ V10.2",
+  "short_name": "競馬AIV102",
+  "display": "standalone",
+  "background_color": "#081121",
+  "theme_color": "#0f172a",
+  "start_url": "./index.html?v=102",
+  "lang": "ja"
+}
