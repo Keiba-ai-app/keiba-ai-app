@@ -1,1 +1,9 @@
-
+{
+  "name": "競馬AI 推奨V2.1 - 実戦精度特化版",
+  "short_name": "競馬AI V2.1",
+  "display": "standalone",
+  "background_color": "#081121",
+  "theme_color": "#7c2d12",
+  "start_url": "./index.html?v=21",
+  "lang": "ja"
+}
