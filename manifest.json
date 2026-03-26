@@ -1,9 +1,1 @@
-{
-  "name": "競馬AI 推奨V1.7 - 距離選択復活・UI完全版",
-  "short_name": "競馬AI V1.7",
-  "display": "standalone",
-  "background_color": "#081121",
-  "theme_color": "#7c2d12",
-  "start_url": "./index.html?v=17",
-  "lang": "ja"
-}
+
