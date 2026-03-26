@@ -1,9 +1,1 @@
-{
-  "name": "競馬AI 推奨V2.0 - 軸除外ロジック適正化版",
-  "short_name": "競馬AI V2.0",
-  "display": "standalone",
-  "background_color": "#081121",
-  "theme_color": "#7c2d12",
-  "start_url": "./index.html?v=20",
-  "lang": "ja"
-}
+
