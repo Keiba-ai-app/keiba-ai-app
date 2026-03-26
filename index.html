@@ -1,1 +1,93 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>競馬AI 推奨6+補欠2 V1.3</title>
+<style>
+body{margin:0;background:#081121;color:#fff;font-family:sans-serif}
+.wrap{max-width:1080px;margin:0 auto;padding:16px}
+.banner{background:#7c2d12;border-radius:14px;padding:12px 14px;font-weight:900;margin-bottom:14px}
+.card{background:#0f172a;border:1px solid #233252;border-radius:20px;padding:16px;margin-bottom:16px}
+.title{font-size:24px;font-weight:900;margin:0 0 8px}
+.row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.box{background:#071225;border:1px solid #233252;border-radius:16px;padding:12px;min-height:88px}
+.k{font-size:13px;color:#cbd5e1;margin-bottom:8px}
+.v{font-size:18px;font-weight:900;white-space:pre-wrap}
+.v_bet{font-size:20px;color:#f59e0b;font-family:monospace}
+label{display:block;font-weight:800;margin:8px 0 6px}
+textarea{width:100%;box-sizing:border-box;background:#091325;color:#fff;border:1px solid #334155;border-radius:14px;padding:12px;min-height:150px}
+input, select{width:100%;box-sizing:border-box;background:#091325;color:#fff;border:1px solid #334155;border-radius:14px;padding:12px}
+button{width:100%;border:none;border-radius:16px;padding:15px;font-size:18px;font-weight:900;color:#fff;cursor:pointer;margin-top:12px}
+.calc{background:#f59e0b;color:#111827}
+.barwrap{display:flex;align-items:center;gap:8px;margin:6px 0}
+.barlabel{width:140px;font-size:14px;color:#cbd5e1}
+.barbg{flex:1;height:14px;background:#1f2937;border-radius:999px;overflow:hidden}
+.barfill{height:100%;background:#3b82f6}
+@media(max-width:820px){.row,.row2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="banner">V1.3 買い目強化版（3連複・3連単マルチ・フォーメーション）</div>
+  <div class="card">
+    <div class="title">データ入力</div>
+    <div class="row">
+      <div><label>競馬場</label><input id="track" value="船橋"></div>
+      <div><label>レース</label><input id="raceNo" value="11R"></div>
+      <div><label>馬場</label><select id="cond"><option>良</option><option>稍重</option><option>重</option><option>不良</option></select></div>
+    </div>
+    <label style="margin-top:12px">出走馬データ貼り付け</label>
+    <textarea id="pasteArea" placeholder="馬番 馬名 人気 オッズ 斤量 増減"></textarea>
+    <button class="calc" onclick="calc()">分析＆買い目生成</button>
+  </div>
 
+  <div class="card" style="border: 2px solid #f59e0b;">
+    <div class="title" style="color:#f59e0b">🎯 AI推奨買い目</div>
+    <div class="row2">
+      <div class="box"><div class="k">3連複フォーメーション (的中重視)</div><div id="bet3puku" class="v v_bet">-</div></div>
+      <div class="box"><div class="k">3連単マルチ (1軸4頭36点)</div><div id="bet3tanMulti" class="v v_bet">-</div></div>
+    </div>
+    <div class="box" style="margin-top:12px"><div class="k">3連単フォーメーション (高配当狙い)</div><div id="bet3tanForm" class="v v_bet">-</div></div>
+  </div>
+
+  <div class="card">
+    <div class="title">分析結果</div>
+    <div id="graphArea" class="box">-</div>
+  </div>
+</div>
+
+<script>
+function $(id){ return document.getElementById(id); }
+function n(v){ var x=parseFloat(String(v).replace(/[^\d\.\-\+]/g,'')); return isFinite(x)?x:0; }
+function calc(){
+  var lines=$('pasteArea').value.split('\n').filter(Boolean);
+  var rows=[];
+  lines.forEach(function(line){
+    var m=line.match(/^(\d+)\s+(.+?)\s+(\d+)\s+([0-9.]+)\s+([0-9.]+)\s+([+\-]?\d+)$/);
+    if(m) rows.push({no:m[1], name:m[2], pop:n(m[3]), odds:n(m[4])});
+  });
+  if(rows.length<6) return alert('馬のデータが足りません');
+  rows.forEach(function(r){ r.score = (20 - r.pop) + (r.odds < 10 ? 5 : 0); });
+  rows.sort(function(a,b){ return b.score-a.score; });
+  var reco6 = rows.slice(0,6);
+  var reserve2 = rows.slice(6,8);
+  var honmei = reco6[0];
+  var r1 = reco6.slice(0,2).map(function(r){ return r.no; });
+  var r2 = reco6.slice(0,4).map(function(r){ return r.no; });
+  var r3 = reco6.map(function(r){ return r.no; });
+  var all8 = reco6.concat(reserve2).map(function(r){ return r.no; });
+  $('bet3puku').textContent = honmei.no + ' - ' + r2.join(',') + ' - ' + all8.join(',');
+  $('bet3tanMulti').textContent = '軸:' + honmei.no + '\n相手:' + reco6.filter(function(r){ return r.no != honmei.no; }).slice(0,4).map(function(r){ return r.no; }).join(',') + ' (36点)';
+  $('bet3tanForm').textContent = r1.join(',') + ' → ' + r2.join(',') + ' → ' + r3.join(',');
+  var gHtml = '';
+  reco6.forEach(function(r){
+    var w = (r.score / reco6[0].score) * 100;
+    gHtml += '<div class="barwrap"><div class="barlabel">'+r.no+'.'+r.name+'</div><div class="barbg"><div class="barfill" style="width:'+w+'%"></div></div></div>';
+  });
+  $('graphArea').innerHTML = gHtml;
+}
+</script>
+</body>
+</html>
