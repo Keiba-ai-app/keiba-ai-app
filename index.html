@@ -1,1 +1,138 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>競馬AI 推奨V1.4 - 大荒れ対応版</title>
+<style>
+body{margin:0;background:#081121;color:#fff;font-family:sans-serif}
+.wrap{max-width:1080px;margin:0 auto;padding:16px}
+.banner{background:#7c2d12;border-radius:14px;padding:12px 14px;font-weight:900;margin-bottom:14px;display:flex;justify-content:space-between}
+.card{background:#0f172a;border:1px solid #233252;border-radius:20px;padding:16px;margin-bottom:16px}
+.title{font-size:22px;font-weight:900;margin:0 0 12px;color:#f59e0b}
+.row{display:grid;grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));gap:10px;margin-bottom:10px}
+.box{background:#071225;border:1px solid #233252;border-radius:16px;padding:12px}
+.k{font-size:12px;color:#cbd5e1;margin-bottom:4px}
+.v{font-size:16px;font-weight:900}
+.v_bet{font-size:20px;color:#f59e0b;font-family:monospace;letter-spacing:1px}
+label{display:block;font-size:13px;font-weight:800;margin-bottom:4px}
+select,input,textarea{width:100%;box-sizing:border-box;background:#091325;color:#fff;border:1px solid #334155;border-radius:10px;padding:10px}
+textarea{min-height:120px}
+button{width:100%;border:none;border-radius:12px;padding:15px;font-size:18px;font-weight:900;cursor:pointer}
+.calc{background:#f59e0b;color:#111827}
+.sw-wrap{display:flex;align-items:center;background:#1e293b;padding:10px;border-radius:12px;margin-bottom:10px}
+.gap-mark{color:#ef4444;font-weight:bold;margin-left:4px}
+.barwrap{display:flex;align-items:center;gap:8px;margin:8px 0}
+.barlabel{width:150px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.barbg{flex:1;height:12px;background:#1f2937;border-radius:6px;overflow:hidden}
+.barfill{height:100%;background:linear-gradient(90deg, #3b82f6, #60a5fa)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="banner"><span>競馬AI V1.4 </span><span id="topStatus">READY</span></div>
 
+  <div class="card">
+    <div class="row">
+      <div><label>全競馬場</label><select id="track">
+        <option>札幌</option><option>函館</option><option>福島</option><option>新潟</option><option>中山</option><option>東京</option><option>中京</option><option>京都</option><option>阪神</option><option>小倉</option>
+        <option selected>大井</option><option>船橋</option><option>川崎</option><option>浦和</option><option>門別</option><option>盛岡</option><option>水沢</option><option>金沢</option><option>笠松</option><option>名古屋</option><option>園田</option><option>姫路</option><option>高知</option><option>佐賀</option>
+      </select></div>
+      <div><label>種別</label><select id="surface"><option>ダート</option><option>芝</option></select></div>
+      <div><label>距離</label><input id="dist" type="number" value="1400"></div>
+      <div><label>馬場</label><select id="cond"><option>良</option><option>稍重</option><option>重</option><option>不良</option></select></div>
+    </div>
+
+    <div class="sw-wrap">
+      <input type="checkbox" id="antiFav" style="width:20px;height:20px;margin-right:10px">
+      <label for="antiFav" style="margin:0;color:#ef4444">【大荒れ警戒】1番人気を軸から外す</label>
+    </div>
+
+    <textarea id="pasteArea" placeholder="馬番 馬名 人気 オッズ 斤量 増減"></textarea>
+    <button class="calc" onclick="calc()">分析＆買い目生成</button>
+  </div>
+
+  <div class="card">
+    <div class="title">🎯 推奨1・2・3 (馬番.馬名)</div>
+    <div class="row">
+      <div class="box"><div class="k">推奨1 (軸)</div><div id="rec1" class="v">-</div></div>
+      <div class="box"><div class="k">推奨2</div><div id="rec2" class="v">-</div></div>
+      <div class="box"><div class="k">推奨3</div><div id="rec3" class="v">-</div></div>
+      <div class="box" style="border:1px solid #ef4444"><div class="k" style="color:#ef4444">★大穴推奨</div><div id="darkHorse" class="v">-</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="title">💰 AI推奨買い目 (番号のみ)</div>
+    <div class="box"><div class="k">3連複フォーメーション (的中重視)</div><div id="bet3puku" class="v_bet">-</div></div>
+    <div class="row" style="margin-top:10px">
+      <div class="box"><div class="k">3連単マルチ</div><div id="bet3tanM" class="v_bet">-</div></div>
+      <div class="box"><div class="k">3連単フォーメ</div><div id="bet3tanF" class="v_bet">-</div></div>
+    </div>
+    <div class="box" style="margin-top:10px;background:#312e81"><div class="k" style="color:#fff">レース傾向</div><div id="raceType" class="v" style="font-size:20px">-</div></div>
+  </div>
+
+  <div class="card">
+    <div class="title">📊 指数・断層評価</div>
+    <div id="graphArea"></div>
+  </div>
+</div>
+
+<script>
+function $(id){ return document.getElementById(id); }
+function n(v){ return parseFloat(String(v).replace(/[^\d.]/g,'')) || 0; }
+
+function calc(){
+  const lines = $('pasteArea').value.split('\n').filter(Boolean);
+  let rows = [];
+  lines.forEach(line => {
+    const m = line.match(/^(\d+)\s+(.+?)\s+(\d+)\s+([0-9.]+)\s+/);
+    if(m) rows.push({no:m[1], name:m[2], pop:n(m[3]), odds:n(m[4]), score:0});
+  });
+
+  if(rows.length < 6) return alert('データが足りません');
+
+  const sortedOdds = [...rows].sort((a,b)=>a.odds - b.odds);
+  rows.forEach(r => {
+    r.score = (20 - r.pop) + (r.odds < 10 ? 8 : 4);
+    let idx = sortedOdds.findIndex(s => s.no === r.no);
+    if(idx > 0 && sortedOdds[idx].odds / sortedOdds[idx-1].odds > 1.5) r.isGap = true;
+  });
+
+  if($('antiFav').checked){
+    rows.forEach(r => { if(r.pop === 1) r.score -= 15; });
+  }
+
+  rows.sort((a,b)=>b.score - a.score);
+  const recs = rows.slice(0,6);
+  const reserves = rows.slice(6,9);
+  const dh = rows.find(r => r.pop >= 7 && r.score > 10) || rows[5];
+
+  $('rec1').textContent = recs[0].no + '.' + recs[0].name;
+  $('rec2').textContent = recs[1].no + '.' + recs[1].name;
+  $('rec3').textContent = recs[2].no + '.' + recs[2].name;
+  $('darkHorse').textContent = dh.no + '.' + dh.name;
+
+  const r1 = recs[0].no;
+  const r2 = recs.slice(1,4).map(r=>r.no).join(',');
+  const r3 = [...recs, ...reserves].map(r=>r.no).join(',');
+  $('bet3puku').textContent = `${r1} - ${r2} - ${r3}`;
+  $('bet3tanM').textContent = `軸:${r1} 複:${recs.slice(1,5).map(r=>r.no).join(',')}`;
+  $('bet3tanF').textContent = `${recs[0].no},${recs[1].no}→${r2}→${r3}`;
+
+  const fav = rows.find(r=>r.pop===1);
+  const favOdds = fav ? fav.odds : 99;
+  $('raceType').textContent = favOdds < 2.0 ? "【普通】本命が堅い" : (favOdds < 4.0 ? "【中荒れ】波乱含み" : "【大荒れ】本命危険");
+
+  let gHtml = '';
+  rows.slice(0,8).forEach(r => {
+    const w = (r.score / rows[0].score) * 100;
+    const gapTag = r.isGap ? '<span class="gap-mark">!!断層</span>' : '';
+    gHtml += `<div class="barwrap"><div class="barlabel">${r.no}.${r.name}${gapTag}</div><div class="barbg"><div class="barfill" style="width:${w}%"></div></div></div>`;
+  });
+  $('graphArea').innerHTML = gHtml;
+  $('topStatus').textContent = 'DONE';
+}
+</script>
+</body>
+</html>
