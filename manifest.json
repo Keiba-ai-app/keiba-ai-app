@@ -1,1 +1,9 @@
-
+{
+  "name": "競馬AI V3.6 - 適性・根拠完全可視化版",
+  "short_name": "競馬AI V3.6",
+  "display": "standalone",
+  "background_color": "#081121",
+  "theme_color": "#1e40af",
+  "start_url": "./index.html?v=36",
+  "lang": "ja"
+}
