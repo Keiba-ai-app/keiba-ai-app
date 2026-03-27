@@ -1,1 +1,9 @@
-
+{
+  "name": "競馬AI V3.8 - 点数修正・伏兵抜粋版",
+  "short_name": "競馬AI V3.8",
+  "display": "standalone",
+  "background_color": "#081121",
+  "theme_color": "#1e40af",
+  "start_url": "./index.html?v=38",
+  "lang": "ja"
+}
