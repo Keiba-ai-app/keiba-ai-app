@@ -1,1 +1,168 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>競馬AI V3.2 - 地方/中央 統合・完全版</title>
+<style>
+body{margin:0;background:#081121;color:#fff;font-family:sans-serif}
+.wrap{max-width:1080px;margin:0 auto;padding:12px}
+.banner{background:linear-gradient(135deg, #1e40af, #7c2d12);border-radius:14px;padding:12px;font-weight:900;margin-bottom:12px;text-align:center;box-shadow:0 4px 15px rgba(0,0,0,0.5)}
+.card{background:#0f172a;border:1px solid #233252;border-radius:20px;padding:16px;margin-bottom:12px}
+.title{font-size:20px;font-weight:900;margin-bottom:10px;color:#f59e0b}
+.row{display:grid;grid-template-columns:repeat(2, 1fr);gap:10px;margin-bottom:10px}
+.box{background:#071225;border:1px solid #233252;border-radius:12px;padding:10px}
+.v_bet{font-size:18px;color:#f59e0b;font-family:monospace;letter-spacing:1px;white-space:pre-wrap;word-break:break-all;max-height:120px;overflow-y:auto;background:#000;padding:8px;border-radius:8px}
+label{display:block;font-size:11px;color:#cbd5e1;margin-bottom:4px}
+select,input,textarea{width:100%;box-sizing:border-box;background:#091325;color:#fff;border:1px solid #334155;border-radius:8px;padding:10px;font-size:16px}
+button{width:100%;border:none;border-radius:12px;padding:18px;font-size:20px;font-weight:900;background:#f59e0b;color:#111827;cursor:pointer;margin-top:8px}
+.strategy-note{background:#1e293b;padding:10px;border-radius:12px;margin-bottom:10px;font-size:13px;border-left:4px solid #3b82f6;color:#60a5fa;font-weight:bold}
+.alert-box{background:#450a0a;border-left:4px solid #ef4444;padding:10px;margin-bottom:10px;font-size:13px;color:#fca5a5;display:none}
+.barwrap{display:flex;align-items:center;gap:8px;margin:8px 0}
+.barlabel{width:130px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.barbg{flex:1;height:12px;background:#1f2937;border-radius:6px;overflow:hidden}
+.barfill{height:100%;background:linear-gradient(90deg, #3b82f6, #60a5fa)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="banner">競馬AI V3.2 - 地方/中央 統合完全版</div>
 
+  <div class="card">
+    <div class="row">
+      <div><label>場</label><select id="track">
+        <optgroup label="JRA"><option>中山</option><option>東京</option><option>阪神</option><option>中京</option><option>京都</option><option>新潟</option><option>福島</option><option>小倉</option><option>札幌</option><option>函館</option></optgroup>
+        <optgroup label="地方"><option selected>大井</option><option>船橋</option><option>川崎</option><option>浦和</option><option>門別</option><option>盛岡</option><option>水沢</option><option>金沢</option><option>笠松</option><option>名古屋</option><option>園田</option><option>姫路</option><option>高知</option><option>佐賀</option></optgroup>
+      </select></div>
+      <div><label>馬場状態</label><select id="cond"><option value="良">良</option><option value="稍重">稍重</option><option value="重">重</option><option value="不良">不良</option></select></div>
+    </div>
+    <div class="row">
+      <div><label>コース種別 / 回り</label><select id="courseType">
+        <option value="D-R">ダート / 右</option><option value="D-L">ダート / 左</option>
+        <option value="T-R">芝 / 右</option><option value="T-L">芝 / 左</option>
+      </select></div>
+      <div><label>距離(m)</label><input id="distance" type="number" value="1400" step="100"></div>
+    </div>
+    <div class="row">
+      <div style="display:flex;align-items:center;padding-top:10px">
+        <input type="checkbox" id="antiFav" style="width:24px;height:24px;margin-right:8px"><label for="antiFav" style="margin:0;color:#ef4444;font-size:14px;font-weight:bold">1人気軸除外</label>
+      </div>
+      <div><label>マルチ買い目設定</label><select id="betMode"><option value="60">60点(相手5頭)推奨</option><option value="36">36点(相手4頭)</option></select></div>
+    </div>
+    <textarea id="pasteArea" placeholder="馬番 名前 人気 オッズ 斤量 増減(例: +2)"></textarea>
+    <button onclick="calc()">分析・軸判定実行</button>
+  </div>
+
+  <div id="alertArea" class="alert-box"></div>
+  <div id="strategy" class="strategy-note">条件を入力してください。</div>
+
+  <div class="card">
+    <div class="title">🎯 厳選推奨</div>
+    <div class="row">
+      <div class="box"><label>推奨1(軸)</label><div id="rec1" style="font-weight:900">-</div></div>
+      <div class="box"><label>推奨2</label><div id="rec2" style="font-weight:900">-</div></div>
+      <div class="box"><label>推奨3</label><div id="rec3" style="font-weight:900">-</div></div>
+      <div class="box" style="border:1px solid #ef4444"><label style="color:#ef4444">★爆穴(5頭目)</label><div id="darkHorse" style="font-weight:900;color:#fbbf24">-</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="title">💰 AI推奨買い目</div>
+    <div class="box" style="margin-bottom:10px"><label id="labelM">3連単マルチ</label><div id="bet3tanM" class="v_bet">-</div></div>
+    <div class="box"><label>3連複F (全通り拡張)</label><div id="bet3puku" class="v_bet">-</div></div>
+  </div>
+
+  <div class="card">
+    <div class="title">📊 指数分布 (上位10頭)</div>
+    <div id="graphArea"></div>
+  </div>
+</div>
+
+<script>
+function $(id){ return document.getElementById(id); }
+function n(v){ return parseFloat(String(v).replace(/[^\d.+-]/g,'')) || 0; }
+function unique(arr){ return [...new Set(arr.filter(v => v))].sort((a,b)=>n(a)-n(b)); }
+
+function calc(){
+  const lines = $('pasteArea').value.split('\n').filter(Boolean);
+  let rows = [];
+  $('alertArea').style.display = 'none';
+
+  lines.forEach(line => {
+    const p = line.split(/\s+/);
+    if(p.length >= 4) {
+      rows.push({
+        no: p[0], name: p[1], pop: n(p[2]), odds: n(p[3]), 
+        weightChange: n(p[p.length-1]),
+        score: 0, isGap: false,
+        rank: n(p[0]) <= 4 ? 'inner' : (n(p[0]) >= 12 ? 'outer' : 'mid')
+      });
+    }
+  });
+
+  if(rows.length < 6) return alert('データが不足しています。');
+
+  const cond = $('cond').value;
+  const dist = n($('distance').value);
+  const track = $('track').value;
+  const cType = $('courseType').value;
+  const isRough = (cond === '重' || cond === '不良');
+  const betMode = $('betMode').value;
+
+  rows.forEach(r => {
+    r.score = (26 - r.pop) + (r.odds < 10 ? 12 : 6);
+    if(dist <= 1300 && r.rank === 'inner') r.score += 8; 
+    if(dist >= 1800 && r.pop >= 5) r.score += 4;
+    if(["中山","阪神"].includes(track) && r.rank === 'inner') r.score += 5;
+    if(["東京","新潟"].includes(track) && r.rank === 'outer') r.score += 5;
+    if(isRough && r.pop >= 7) r.score += 10;
+  });
+
+  const sortedOdds = [...rows].sort((a,b)=>a.odds - b.odds);
+  for(let i=1; i<sortedOdds.length; i++){
+    if(sortedOdds[i].odds / sortedOdds[i-1].odds > 1.65) {
+      let target = rows.find(x => x.no === sortedOdds[i].no);
+      if(target) target.isGap = true;
+    }
+  }
+
+  if($('antiFav').checked) {
+    rows.forEach(r => { if(r.pop === 1) r.score -= 20; });
+  }
+
+  rows.sort((a,b)=>b.score - a.score);
+
+  let finalRows = [...rows];
+  if(Math.abs(finalRows[0].weightChange) >= 12) {
+    $('alertArea').innerHTML = `【⚠️軸警告】${finalRows[0].no}番に大幅体重増減(${finalRows[0].weightChange}kg)。2位を軸へ昇格。`;
+    $('alertArea').style.display = 'block';
+    let temp = finalRows[0]; finalRows[0] = finalRows[1]; finalRows[1] = temp;
+  }
+
+  const r1 = finalRows[0], r2 = finalRows[1], r3 = finalRows[2];
+  const dh = finalRows.find(x => x.pop >= 8 && (x.isGap || isRough)) || finalRows[8] || finalRows[5];
+
+  $('rec1').textContent = r1.no+'.'+r1.name;
+  $('rec2').textContent = r2.no+'.'+r2.name;
+  $('rec3').textContent = r3.no+'.'+r3.name;
+  $('darkHorse').textContent = dh.no+'.'+dh.name;
+
+  $('strategy').textContent = `${track} / ${cType.replace('D','ダ').replace('T','芝').replace('R','右').replace('L','左')} / ${dist}m / ${cond}`;
+
+  const aiteCnt = (betMode === "60") ? 5 : 4;
+  const aiteList = unique([r2.no, r3.no, finalRows[3]?.no, finalRows[4]?.no, finalRows[5]?.no, dh.no]).slice(0, aiteCnt);
+
+  $('labelM').textContent = `3連単マルチ (${betMode === "60" ? "60点" : "36点"})`;
+  $('bet3tanM').textContent = `軸:${r1.no}\n相手:${aiteList.join(',')}`;
+  $('bet3puku').textContent = `${r1.no} - ${aiteList.slice(0,3).join(',')} - 全通り`;
+
+  let gHtml = '';
+  finalRows.slice(0,10).forEach(r => {
+    const w = (r.score / finalRows[0].score) * 100;
+    gHtml += `<div class="barwrap"><div class="barlabel">${r.no}.${r.name}${r.isGap?'!!':''}</div><div class="barbg"><div class="barfill" style="width:${Math.max(w,0)}%"></div></div></div>`;
+  });
+  $('graphArea').innerHTML = gHtml;
+}
+</script>
+</body>
+</html>
