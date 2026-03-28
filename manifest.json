@@ -1,9 +1,1 @@
-{
-  "name": "競馬AI V6.9.2",
-  "short_name": "競馬AI V6.9.2",
-  "display": "standalone",
-  "background_color": "#081121",
-  "theme_color": "#1e40af",
-  "start_url": "./index.html?v=692",
-  "lang": "ja"
-}
+
