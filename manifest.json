@@ -1,1 +1,9 @@
-
+{
+  "name": "競馬AI V5.8 - コース適性最適化版",
+  "short_name": "競馬AI V5.8",
+  "display": "standalone",
+  "background_color": "#081121",
+  "theme_color": "#1e40af",
+  "start_url": "./index.html?v=58",
+  "lang": "ja"
+}
