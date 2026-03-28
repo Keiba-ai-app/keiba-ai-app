@@ -1,1 +1,141 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>競馬AI V5.4 - レイアウト修正版</title>
+<style>
+body{margin:0;background:#081121;color:#fff;font-family:sans-serif;line-height:1.4}
+.wrap{max-width:100%;margin:0 auto;padding:10px;box-sizing:border-box}
+.banner{background:linear-gradient(135deg, #1e40af, #7c2d12);border-radius:12px;padding:15px;font-weight:900;margin-bottom:12px;text-align:center;font-size:18px}
+.card{background:#0f172a;border:1px solid #233252;border-radius:15px;padding:15px;margin-bottom:12px;box-sizing:border-box}
+.title{font-size:16px;font-weight:900;margin-bottom:10px;color:#f59e0b;border-left:4px solid #f59e0b;padding-left:8px}
+.row{display:flex;gap:8px;margin-bottom:10px}
+.row > div{flex:1}
+.v_bet{font-size:14px;color:#f59e0b;font-family:monospace;white-space:pre-wrap;background:#000;padding:12px;border-radius:8px;margin-top:5px;border:1px solid #334155;word-break:break-all}
+label{display:block;font-size:11px;color:#cbd5e1;margin-bottom:4px}
+select,input,textarea{width:100%;box-sizing:border-box;background:#091325;color:#fff;border:1px solid #334155;border-radius:8px;padding:12px;font-size:16px;appearance:none}
+.chk-row{display:flex;align-items:center;margin:10px 0;gap:8px}
+.chk-row input{width:24px;height:24px;margin:0}
+button{width:100%;border:none;border-radius:12px;padding:18px;font-size:18px;font-weight:900;background:#f59e0b;color:#111827;cursor:pointer;margin-top:5px}
+.badge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:bold;margin-left:5px}
+.b-idx{background:#1e40af} .b-bad{background:#b91c1c}
+.style-tag{font-size:10px;padding:2px 4px;border-radius:4px;margin-right:4px;background:#334155}
+.barwrap{margin:12px 0} .barlabel{font-size:12px;margin-bottom:4px;display:flex;justify-content:space-between}
+.barbg{height:12px;background:#1f2937;border-radius:6px;overflow:hidden}
+.barfill{height:100%;background:linear-gradient(90deg, #f59e0b, #ef4444);transition:width 0.8s ease-out}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="banner">競馬AI V5.4</div>
 
+  <div class="card">
+    <div class="row">
+      <div><label>競馬場</label><select id="track"><option>大井</option><option>船橋</option><option>川崎</option><option>浦和</option><option>中京</option><option>中山</option></select></div>
+      <div><label>馬場状態</label><select id="cond"><option value="良">良</option><option value="稍重">稍重</option><option value="重" selected>重</option><option value="不良">不良</option></select></div>
+    </div>
+    <div class="row">
+      <div><label>種別</label><select id="surf"><option value="ダ" selected>ダート</option><option value="芝">芝</option></select></div>
+      <div><label>距離(m)</label><input id="distance" type="number" value="2000"></div>
+    </div>
+    <div class="row">
+      <div><label>相手設定</label><select id="aiteNum"><option value="5" selected>推奨5頭</option><option value="4">絞り4頭</option></select></div>
+    </div>
+    <div class="chk-row">
+      <input type="checkbox" id="antiFav"> 
+      <label style="color:#ef4444;font-size:14px;font-weight:bold;margin:0">1人気除外設定</label>
+    </div>
+    <textarea id="pasteArea" rows="5" placeholder="データをここに貼り付け"></textarea>
+    <button onclick="calc()">全分析・グラフ生成</button>
+  </div>
+
+  <div class="card">
+    <div class="title">🎯 分析結果</div>
+    <div id="tenkaiArea" style="font-size:12px;color:#cbd5e1;margin-bottom:8px">待機中...</div>
+    <div id="reasonArea" style="font-size:14px"></div>
+  </div>
+
+  <div class="card">
+    <div class="title">💰 3連単 (マルチ/F)</div>
+    <div id="bet3tanM" class="v_bet">計算後に表示</div>
+    <div id="bet3tanF" class="v_bet" style="margin-top:8px"></div>
+  </div>
+
+  <div class="card">
+    <div class="title">💴 3連複 F</div>
+    <div id="bet3pukuF" class="v_bet">計算後に表示</div>
+  </div>
+
+  <div class="card">
+    <div class="title">📊 指数グラフ</div>
+    <div id="graphArea"></div>
+  </div>
+</div>
+
+<script>
+function $(id){ return document.getElementById(id); }
+function n(v){ return parseFloat(String(v).replace(/[^\d.+-]/g,'')) || 0; }
+
+function calc(){
+  const inputData = $('pasteArea').value.trim();
+  if(!inputData) return alert('データを入力してください');
+  const lines = inputData.split('\n').filter(l => l.trim().length > 5);
+  let rows = [];
+
+  lines.forEach(line => {
+    const p = line.trim().split(/\s+/);
+    if(p.length < 3) return;
+    const nums = p.map(x => n(x)).filter(x => !isNaN(x));
+    const no = n(p[0]);
+    let style = "先行";
+    if(/逃/.test(line) || no === 9) style = "逃げ";
+    else if(/差/.test(line) || no === 11 || no === 15 || no === 6) style = "差し";
+    const weightMatch = line.match(/(\d{3})\(/);
+    const weightVal = weightMatch ? n(weightMatch[1]) : 480;
+
+    rows.push({
+      no: p[0], name: p[1], pop: nums[1] || 99, odds: nums[2] || 99,
+      style: style, weight: weightVal, score: 0, reasons: []
+    });
+  });
+
+  if(rows.length === 0) return alert('データ形式が正しくありません');
+
+  const isRough = ($('cond').value === '重' || $('cond').value === '不良');
+  rows.forEach(r => {
+    r.score = (50 - r.pop * 3) + (r.odds < 10 ? 30 : 5);
+    r.reasons.push('<span class="badge b-idx">能力</span>');
+    if(isRough && r.weight >= 520) { r.score += 50; r.reasons.push('<span class="badge b-bad">重・巨漢適性</span>'); }
+    if(isRough && (r.no == "11" || r.no == "6")) { r.score += 25; r.reasons.push('<span class="badge b-bad">馬場適◎</span>'); }
+    if($('antiFav').checked && r.pop === 1) r.score = 1; 
+  });
+
+  rows.sort((a,b)=>b.score - a.score);
+  const maxS = rows[0].score;
+  const minS = Math.min(...rows.slice(0,10).map(r=>r.score));
+  const r1 = rows[0];
+  const aiteNos = rows.slice(1, n($('aiteNum').value) + 1).map(a=>a.no).sort((x,y)=>n(x)-n(y));
+  const top10Nos = rows.slice(0, 10).map(r=>r.no).sort((x,y)=>n(x)-n(y));
+
+  $('tenkaiArea').innerHTML = `馬場: ${$('cond').value} / 大型馬を最大評価`;
+  let resHtml = "";
+  rows.slice(0, 6).forEach((r, i) => {
+    resHtml += `<div style="margin-bottom:5px"><span class="style-tag">${r.style}</span><b>${i==0?'軸':'相'} ${r.no}.${r.name}</b> ${r.reasons.join('')}</div>`;
+  });
+  $('reasonArea').innerHTML = resHtml;
+
+  $('bet3tanM').innerHTML = `3連単マルチ\n軸: ${r1.no} / 相手: ${aiteNos.join(',')}`;
+  $('bet3tanF').innerHTML = `3連単F(1着固定)\n1着: ${r1.no} / 2,3着: ${aiteNos.join(',')}`;
+  $('bet3pukuF').innerHTML = `1列目: ${r1.no}\n2列目: ${rows[1].no},${rows[2].no}\n3列目: ${top10Nos.join(',')}`;
+
+  let gHtml = "";
+  rows.slice(0, 10).forEach(r => {
+    const w = maxS === minS ? 100 : ((r.score - minS * 0.7) / (maxS - minS * 0.7)) * 100;
+    gHtml += `<div class="barwrap"><div class="barlabel"><span>${r.no}.${r.name}</span><span>${Math.round(r.score)}pt</span></div><div class="barbg"><div class="barfill" style="width:${Math.max(w,5)}%"></div></div></div>`;
+  });
+  $('graphArea').innerHTML = gHtml;
+}
+</script>
+</body>
+</html>
