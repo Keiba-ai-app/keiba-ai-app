@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>競馬AI V6.2 - 柔軟構築版</title>
+<title>競馬AI V6.3 - 真・連動版</title>
 <style>
 body{margin:0;background:#081121;color:#fff;font-family:sans-serif;line-height:1.4}
 .wrap{max-width:100%;margin:0 auto;padding:10px;box-sizing:border-box}
@@ -32,12 +32,12 @@ button.exec{width:100%;border:none;border-radius:12px;padding:20px;font-size:20p
 </head>
 <body>
 <div class="wrap">
-  <div class="banner">競馬AI V6.2</div>
+  <div class="banner">競馬AI V6.3</div>
 
   <div class="card">
     <div class="anti-fav-btn" id="favBtn" onclick="toggleFav()">
       <input type="checkbox" id="antiFav">
-      <span class="anti-fav-text" id="favText" style="font-weight:900">⬜️ 1番人気を【軸(1着)から外す】</span>
+      <span class="anti-fav-text" id="favText" style="font-weight:900">⬜️ 1番人気を【軸から外して相手へ】</span>
     </div>
 
     <div class="row">
@@ -48,18 +48,18 @@ button.exec{width:100%;border:none;border-radius:12px;padding:20px;font-size:20p
       <div><label>種別</label><select id="surf"><option value="ダ" selected>ダート</option><option value="芝">芝</option></select></div>
       <div><label>相手頭数</label><select id="aiteNum"><option value="5" selected>5頭</option><option value="6">6頭</option></select></div>
     </div>
-    <textarea id="pasteArea" rows="5" placeholder="データを貼り付けてください"></textarea>
-    <button class="exec" onclick="calc()">分析・買い目生成</button>
+    <textarea id="pasteArea" rows="5" placeholder="ここにデータを貼り付けてください"></textarea>
+    <button class="exec" onclick="calc()">全分析・買い目生成実行</button>
   </div>
 
   <div class="card">
-    <div class="title">🎯 推奨順位 (軸と相手)</div>
+    <div class="title">🎯 判定結果 (1人気は相手に配置)</div>
     <div id="tenkaiArea" style="font-size:12px;color:#cbd5e1;margin-bottom:8px"></div>
     <div id="reasonArea" style="font-size:14px"></div>
   </div>
 
   <div class="card">
-    <div class="title">💰 買い目 (柔軟対応版)</div>
+    <div class="title">💰 買い目 (完全連動)</div>
     <div id="bet3tanM" class="v_bet"></div>
     <div id="bet3tanF" class="v_bet" style="margin-top:10px"></div>
     <div id="bet3pukuF" class="v_bet" style="margin-top:10px"></div>
@@ -79,12 +79,12 @@ function toggleFav(){
   const cb = $('antiFav'); const btn = $('favBtn'); const txt = $('favText');
   cb.checked = !cb.checked;
   btn.classList.toggle('active', cb.checked);
-  txt.innerHTML = cb.checked ? "✅ 1人気を【相手(2・3着)に回す】" : "⬜️ 1番人気を【軸(1着)から外す】";
+  txt.innerHTML = cb.checked ? "✅ 1人気を【相手(2・3着)に固定中】" : "⬜️ 1番人気を【軸から外して相手へ】";
 }
 
 function calc(){
   const inputData = $('pasteArea').value.trim();
-  if(!inputData) return alert('データがありません');
+  if(!inputData) return alert('データを貼り付けてください');
   const lines = inputData.split('\n').filter(l => l.trim().length > 5);
   let allRows = [];
 
@@ -109,53 +109,52 @@ function calc(){
     r.score = (75 / (r.pop + 0.5)) + (35 / Math.log10(r.odds + 2));
     r.reasons = ['<span class="badge b-ninki">能力</span>'];
     if(isDirt && isRough && r.weight >= 510) {
-      r.score += 35; r.reasons.push('<span class="badge b-power">適性</span>');
+      r.score += 40; r.reasons.push('<span class="badge b-power">適性</span>');
     }
     const sorted = [...allRows].sort((a,b)=>a.odds - b.odds);
     let idx = sorted.findIndex(s => s.no === r.no);
     if(idx > 0 && sorted[idx].odds / sorted[idx-1].odds > 1.6) {
-      r.score += 25; r.reasons.push('<span class="badge b-dansou">断層</span>');
+      r.score += 30; r.reasons.push('<span class="badge b-dansou">断層</span>');
     }
   });
 
   let rankRows = [...allRows].sort((a,b)=>b.score - a.score);
   let favHorse = allRows.find(r => r.pop === 1);
 
-  let jikuHorse;
-  let aiteHorses = [];
+  let jiku;
+  let finalAite = [];
 
-  if(antiFav && favHorse && rankRows[0].no === favHorse.no) {
-    jikuHorse = rankRows[1] || rankRows[0];
-    aiteHorses = [favHorse, ...rankRows.filter(r => r.no !== favHorse.no && r.no !== jikuHorse.no)];
+  if(antiFav && favHorse) {
+    let withoutFav = rankRows.filter(r => r.no !== favHorse.no);
+    jiku = withoutFav[0] || rankRows[0];
+    finalAite = [favHorse, ...withoutFav.slice(1)];
   } else {
-    jikuHorse = rankRows[0];
-    aiteHorses = rankRows.slice(1);
+    jiku = rankRows[0];
+    finalAite = rankRows.slice(1);
   }
 
-  if (!jikuHorse || aiteHorses.length < 2) return alert('データが足りません');
-
   const aiteNum = n($('aiteNum').value);
-  const selectedAite = aiteHorses.slice(0, aiteNum).map(a=>a.no).sort((x,y)=>n(x)-n(y));
-  const top10 = rankRows.slice(0, 10).map(r=>r.no).sort((x,y)=>n(x)-n(y));
+  const selectedAiteNos = finalAite.slice(0, aiteNum).map(a=>a.no).sort((x,y)=>n(x)-n(y));
+  const top10Nos = rankRows.map(r=>r.no).slice(0,10).sort((x,y)=>n(x)-n(y));
 
-  $('tenkaiArea').innerHTML = `軸: ${jikuHorse.no} / 相手に1番人気を含める柔軟設定`;
-  let resHtml = `<div><b>【軸】 ${jikuHorse.no}.${jikuHorse.name}</b> ${jikuHorse.reasons.join('')}</div><hr style="border:0.5px solid #233252">`;
-  aiteHorses.slice(0, 5).forEach(r => {
+  $('tenkaiArea').innerHTML = `軸固定: ${jiku.no} / 相手設定: ${antiFav?'1人気流し':'通常'}`;
+  let resHtml = `<div><b>【軸】 ${jiku.no}.${jiku.name}</b> ${jiku.reasons.join('')}</div><hr style="border:0.2px solid #233252">`;
+  finalAite.slice(0, 5).forEach(r => {
     resHtml += `<div style="margin-bottom:5px">相 ${r.no}.${r.name} ${r.reasons.join('')}</div>`;
   });
   $('reasonArea').innerHTML = resHtml;
 
-  $('bet3tanM').innerHTML = `3連単マルチ\n軸: ${jikuHorse.no} / 相手: ${selectedAite.join(',')}`;
-  $('bet3tanF').innerHTML = `3連単F(1着固定)\n1着: ${jikuHorse.no}\n2,3着: ${selectedAite.join(',')}`;
+  $('bet3tanM').innerHTML = `3連単マルチ\n軸: ${jiku.no} / 相手: ${selectedAiteNos.join(',')}`;
+  $('bet3tanF').innerHTML = `3連単F(1着固定)\n1着: ${jiku.no}\n2,3着: ${selectedAiteNos.join(',')}`;
 
-  const col2 = aiteHorses.slice(0, 2).map(r=>r.no);
-  $('bet3pukuF').innerHTML = `3連複F\n1列目: ${jikuHorse.no}\n2列目: ${col2.join(',')}\n3列目: ${top10.join(',')}`;
+  const col2 = finalAite.slice(0, 2).map(r=>r.no);
+  $('bet3pukuF').innerHTML = `3連複F\n1列目: ${jiku.no}\n2列目: ${col2.join(',')}\n3列目: ${top10Nos.join(',')}`;
 
   let gHtml = "";
   const maxS = rankRows[0].score;
   rankRows.slice(0, 10).forEach(r => {
     const w = maxS === 0 ? 100 : (r.score / maxS) * 100;
-    gHtml += `<div class="barwrap"><div class="barlabel"><span>${r.no}.${r.name}</span><span>${Math.round(r.score)}pt</span></div><div class="barbg"><div class="barfill" style="width:${w}%"></div></div></div>`;
+    gHtml += `<div class="barwrap"><div class="barlabel"><span>${r.no}.${r.name} (${r.weight}kg)</span><span>${Math.round(r.score)}pt</span></div><div class="barbg"><div class="barfill" style="width:${w}%"></div></div></div>`;
   });
   $('graphArea').innerHTML = gHtml;
 }
