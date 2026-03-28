@@ -1,1 +1,9 @@
-
+{
+  "name": "競馬AI V6.5 - 最終安定版",
+  "short_name": "競馬AI V6.5",
+  "display": "standalone",
+  "background_color": "#081121",
+  "theme_color": "#1e40af",
+  "start_url": "./index.html?v=65",
+  "lang": "ja"
+}
