@@ -1,9 +1,1 @@
-{
-  "name": "競馬AI V6.2 - 柔軟構築版",
-  "short_name": "競馬AI V6.2",
-  "display": "standalone",
-  "background_color": "#081121",
-  "theme_color": "#1e40af",
-  "start_url": "./index.html?v=62",
-  "lang": "ja"
-}
+
