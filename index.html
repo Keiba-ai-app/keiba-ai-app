@@ -1,1 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>競馬分析アプリ</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#111111">
+  <style>
+    body { background:#000; color:#fff; font-family:sans-serif; margin:0; padding:20px; }
+    #app { max-width:700px; margin:0 auto; }
+    textarea, input, select, button { box-sizing:border-box; }
+    #rawGrid { width:100%; min-height:180px; padding:12px; background:#222; color:#fff; border:1px solid #777; border-radius:6px; margin:12px 0; }
+    .box { background:#111; padding:15px; border:2px solid #666; color:#fff; border-radius:12px; }
+    .result { background:#111; border:1px solid #444; border-radius:8px; padding:12px; margin-top:10px; }
+    #horseList div, #ranking div { padding:4px 0; border-bottom:1px solid #222; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="box">
+      <div style="margin-bottom:12px;">
+        <input id="inDist" type="text" placeholder="距離 (例: 1200)" style="width:100%; padding:12px; background:#222; color:#fff; border:1px solid #777; margin-bottom:8px; border-radius:6px; font-size:16px;">
+        
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:8px;">
+          <select id="selCond" style="padding:12px; background:#222; color:#fff; border:1px solid #777; border-radius:6px;">
+            <option value="">馬場状態</option>
+            <option value="良">良</option><option value="稍重">稍重</option><option value="重">重</option><option value="不良">不良</option>
+          </select>
+          <select id="selDir" style="padding:12px; background:#222; color:#fff; border:1px solid #777; border-radius:6px;">
+            <option value="">回り</option>
+            <option value="左">左回り</option><option value="右">右回り</option>
+          </select>
+        </div>
 
+        <select id="selCourse" style="width:100%; padding:12px; background:#222; color:#fff; border:1px solid #777; border-radius:6px; margin-bottom:12px;">
+          <option value="">競馬場を選択</option>
+          <option value="中京">中京</option><option value="中山">中山</option><option value="阪神">阪神</option><option value="東京">東京</option>
+          <option value="京都">京都</option><option value="大井">大井</option><option value="船橋">船橋</option><option value="高知">高知</option>
+        </select>
+      </div>
+
+      <textarea id="rawGrid" placeholder="ここにタブ区切りデータを貼り付け"></textarea>
+
+      <div style="display:flex; gap:8px; margin-bottom:15px;">
+        <button type="button" id="btnAnti" onclick="window.fA=!window.fA; this.style.background=window.fA?'#ef4444':'#444'; document.getElementById('runBtn').click();" style="flex:1; padding:12px; background:#444; color:#fff; border:none; border-radius:6px; font-weight:bold;">1人気消し</button>
+        <button type="button" id="btnW" onclick="window.fW=!window.fW; this.style.background=window.fW?'#f59e0b':'#444'; document.getElementById('runBtn').click();" style="flex:1; padding:12px; background:#444; color:#fff; border:none; border-radius:6px; font-weight:bold;">W軸(1着2頭)</button>
+      </div>
+      
+      <button type="button" id="runBtn" onclick="
+        var raw = document.getElementById('rawGrid');
+        if(!raw || !raw.value) { alert('データを入れてください'); return; }
+        
+        var lines = raw.value.split('\n').filter(l => l.trim() !== '');
+        var data = lines.map(line => {
+          var d = line.split('\t');
+          var score = parseFloat(d[4]) || 0;
+          var info = (d[1]||'') + (d[5]||'');
+          if(document.getElementById('inDist').value && info.includes(document.getElementById('inDist').value)) score += 5;
+          if(document.getElementById('selCond').value && info.includes(document.getElementById('selCond').value)) score += 5;
+          if(document.getElementById('selCourse').value && info.includes(document.getElementById('selCourse').value)) score += 5;
+          if(document.getElementById('selDir').value && info.includes(document.getElementById('selDir').value)) score += 5;
+          return { no: d[0], pop: parseInt(d[2])||99, score: score };
+        });
+        
+        data.sort((a,b) => b.score - a.score);
+        var jiku = window.fA ? data.filter(r => r.pop !== 1)[0] : data[0];
+        if(!jiku) jiku = data[0];
+        var aite = data.filter(r => r.no !== jiku.no);
+        var h5 = aite.slice(0, 5).map(h => h.no).sort((a,b)=>a-b);
+        var f2 = aite.slice(5).filter(r => r.score > 40).slice(0, 2).map(f => f.no);
+        var comb = h5.concat(f2).sort((a,b)=>a-b);
+        var first = window.fW ? [jiku.no, aite[0].no].sort((a,b)=>a-b).join(',') : jiku.no;
+
+        if(document.getElementById('bet3tanM')) document.getElementById('bet3tanM').innerHTML = '軸 ' + jiku.no + ' ↔ 相手 ' + h5.join(', ');
+        if(document.getElementById('bet3tanF')) document.getElementById('bet3tanF').innerHTML = first + ' → ' + comb.join(',') + ' → 全網羅';
+        if(document.getElementById('bet3pukuF')) document.getElementById('bet3pukuF').innerHTML = first + ' / ' + comb.join(',') + ' / 全網羅';
+        
+        var list = document.getElementById('horseList') || document.getElementById('ranking');
+        if(list) list.innerHTML = data.map((r, i) => '<div>' + (i+1) + '位: ' + r.no + '番 (' + r.score.toFixed(1) + 'pt)</div>').join('');
+      " style="width:100%; padding:22px; background:#2563eb; color:#fff; border:none; border-radius:8px; font-weight:bold; font-size:22px;">🚀 分析実行</button>
+    </div>
+
+    <div class="result"><b>【3連単マルチ】</b><div id="bet3tanM">ここに表示</div></div>
+    <div class="result"><b>【3連単F】</b><div id="bet3tanF">ここに表示</div></div>
+    <div class="result"><b>【3連複F】</b><div id="bet3pukuF">ここに表示</div></div>
+    <div class="result"><b>ランキング</b><div id="horseList"></div></div>
+  </div>
+
+  <script>
+    window.fA = false;
+    window.fW = false;
+  </script>
+</body>
+</html>
