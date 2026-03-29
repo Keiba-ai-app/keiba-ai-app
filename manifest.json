@@ -1,10 +1,1 @@
-{
-  "name": "競馬AI分析 V7.1 Pro",
-  "short_name": "競馬AI分析",
-  "start_url": "./index.html",
-  "display": "standalone",
-  "background_color": "#020617",
-  "theme_color": "#020617",
-  "lang": "ja",
-  "description": "競馬データを貼り付けて軸馬と相手候補を表示するシンプルな分析アプリ"
-}
+
