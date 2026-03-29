@@ -1,1 +1,9 @@
-
+{
+  "name": "競馬AI分析 NextGen",
+  "short_name": "競馬AI分析",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#3b82f6",
+  "lang": "ja"
+}
