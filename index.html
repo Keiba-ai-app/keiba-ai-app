@@ -1,1 +1,159 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>競馬AI V7.0.1 実行強調版</title>
+<style>
+body{margin:0;background:#081121;color:#fff;font-family:sans-serif;line-height:1.4}
+.wrap{max-width:100%;margin:0 auto;padding:10px;box-sizing:border-box}
+.banner{background:linear-gradient(135deg, #1e40af, #7c2d12);border-radius:12px;padding:12px;font-weight:900;margin-bottom:10px;text-align:center}
+.card{background:#0f172a;border:1px solid #233252;border-radius:15px;padding:15px;margin-bottom:12px}
+.title{font-size:16px;font-weight:900;margin-bottom:10px;color:#f59e0b;border-left:4px solid #f59e0b;padding-left:8px}
+.v_bet{font-size:15px;color:#f59e0b;font-family:monospace;white-space:pre-wrap;background:#000;padding:12px;border-radius:8px;margin-top:5px;border:1px solid #334155}
+textarea{width:100%;box-sizing:border-box;background:#091325;color:#fff;border:1px solid #334155;border-radius:8px;padding:12px;font-size:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="banner">競馬AI V7.0.1 - 実行強調版</div>
 
+  <div class="card">
+    <div style="background:#111; padding:12px; border:2px solid #444; color:#fff; border-radius:10px;">
+      <div style="margin-bottom:10px;">
+        <input id="inDist" type="text" placeholder="距離を入力 (例: 1200)" style="width:100%; padding:12px; background:#333; color:#fff; border:1px solid #555; margin-bottom:8px; border-radius:5px; font-size:16px;">
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px; margin-bottom:8px;">
+          <select id="selCond" style="padding:12px; background:#333; color:#fff; border:1px solid #555; border-radius:5px;">
+            <option value="">馬場状態</option>
+            <option value="良">良</option><option value="稍重">稍重</option><option value="重">重</option><option value="不良">不良</option>
+          </select>
+          <select id="selDir" style="padding:12px; background:#333; color:#fff; border:1px solid #555; border-radius:5px;">
+            <option value="">回り</option>
+            <option value="左">左回り</option><option value="右">右回り</option>
+          </select>
+        </div>
+
+        <select id="selCourse" style="width:100%; padding:12px; background:#333; color:#fff; border:1px solid #555; border-radius:5px; margin-bottom:8px;">
+          <option value="">競馬場を選択</option>
+          <optgroup label="中央競馬">
+            <option value="中京">中京</option><option value="中山">中山</option><option value="阪神">阪神</option><option value="東京">東京</option>
+            <option value="京都">京都</option><option value="新潟">新潟</option><option value="小倉">小倉</option><option value="福島">福島</option>
+            <option value="札幌">札幌</option><option value="函館">函館</option>
+          </optgroup>
+          <optgroup label="地方競馬">
+            <option value="大井">大井</option><option value="川崎">川崎</option><option value="船橋">船橋</option><option value="浦和">浦和</option>
+            <option value="門別">門別</option><option value="高知">高知</option><option value="名古屋">名古屋</option><option value="園田">園田</option>
+          </optgroup>
+        </select>
+      </div>
+
+      <div style="display:flex; gap:5px; margin-bottom:12px;">
+        <button type="button" onclick="toggleAnti()" id="btnAnti" style="flex:1; padding:12px; background:#444; color:#fff; border:none; border-radius:5px; font-weight:bold;">1人気消し</button>
+        <button type="button" onclick="toggleW()" id="btnW" style="flex:1; padding:12px; background:#444; color:#fff; border:none; border-radius:5px; font-weight:bold;">W軸(1着2頭)</button>
+      </div>
+
+      <button type="button" onclick="calcMain()" style="width:100%; padding:20px; background:#3b82f6; color:#fff; border:none; border-radius:5px; font-weight:bold; font-size:20px; cursor:pointer; box-shadow: 0 4px 0 #1d4ed8;">🚀 分析実行 (ここを押す)</button>
+    </div>
+
+    <label style="display:block;font-size:12px;color:#cbd5e1;margin:10px 0 6px;">入力（タブ区切り: 馬番 馬名 人気 オッズ スコア 詳細）</label>
+    <textarea id="rawGrid" rows="8" placeholder="1	馬名	3	5.2	72	中京 左 良 1200"></textarea>
+  </div>
+
+  <div class="card">
+    <div class="title">💰 買い目</div>
+    <div id="bet3tanM" class="v_bet">-</div>
+    <div id="bet3tanF" class="v_bet" style="margin-top:10px">-</div>
+    <div id="bet3pukuF" class="v_bet" style="margin-top:10px">-</div>
+  </div>
+
+  <div class="card">
+    <div class="title">📋 ランキング</div>
+    <div id="horseList" style="font-size:14px"></div>
+  </div>
+</div>
+
+<script>
+// 状態管理
+window.isAnti = false;
+window.isW = false;
+
+// 補正切り替え（即時再計算）
+function toggleAnti() {
+  window.isAnti = !window.isAnti;
+  document.getElementById('btnAnti').style.background = window.isAnti ? '#ef4444' : '#444';
+  calcMain();
+}
+
+function toggleW() {
+  window.isW = !window.isW;
+  document.getElementById('btnW').style.background = window.isW ? '#f59e0b' : '#444';
+  calcMain();
+}
+
+// メイン計算関数
+function calcMain() {
+  const grid = document.getElementById('rawGrid');
+  if(!grid || !grid.value) { alert('データを入力してください'); return; }
+
+  const lines = grid.value.split('\n').filter(l => l.trim());
+  let data = lines.map(line => {
+    const d = line.split('\t');
+    let score = parseFloat(d[4]) || 0;
+    let info = (d[1] || "") + (d[5] || "");
+
+    // 選択・入力値によるスコア補正
+    const dist = document.getElementById('inDist').value;
+    const cond = document.getElementById('selCond').value;
+    const cour = document.getElementById('selCourse').value;
+    const dir  = document.getElementById('selDir').value;
+
+    if(dist && info.includes(dist)) score += 5;
+    if(cond && info.includes(cond)) score += 5;
+    if(cour && info.includes(cour)) score += 5;
+    if(dir  && info.includes(dir))  score += 5;
+
+    return { no: d[0], name: d[1], pop: parseInt(d[2]) || 99, score: score };
+  }).filter(r => r.no && r.name);
+
+  // スコア順ソート
+  data.sort((a, b) => b.score - a.score);
+
+  // 軸設定
+  let jiku = window.isAnti ? data.filter(r => r.pop !== 1)[0] : data[0];
+  if(!jiku) jiku = data[0];
+  let aiteAll = data.filter(r => r.no !== jiku.no);
+
+  // 本線5頭 + 伏兵2頭 (18頭対応)
+  let h5 = aiteAll.slice(0, 5);
+  let f2 = aiteAll.slice(5).filter((r) => {
+    let idx = data.indexOf(r);
+    return (data[idx-1].score - r.score > 8) || (idx >= 10 && r.score > 40);
+  }).slice(0, 2);
+
+  const hNos = h5.map(h => h.no).sort((a,b) => a-b);
+  const combined = [...hNos, ...f2.map(f => f.no)].sort((a,b) => a-b);
+
+  // W軸(1着2頭)
+  let first = window.isW ? [jiku.no, aiteAll[0].no].sort((a,b)=>a-b).join(',') : jiku.no;
+
+  // 画面出力
+  const setHtml = (id, html) => { if(document.getElementById(id)) document.getElementById(id).innerHTML = html; };
+
+  setHtml('bet3tanM', `<b>【3連単マルチ 60点】</b><br>軸 ${jiku.no} ↔ 相手 ${hNos.join(', ')}`);
+  setHtml('bet3tanF', `<b>【3連単F】</b><br>${first} → ${combined.join(',')} → 3着全網羅(18頭)`);
+  setHtml('bet3pukuF', `<b>【3連複F】</b><br>${first} / ${combined.join(',')} / 全網羅`);
+
+  const listArea = document.getElementById('horseList') || document.getElementById('ranking');
+  if(listArea) {
+    listArea.innerHTML = data.map((r, i) => {
+      let ana = f2.some(f => f.no === r.no);
+      return `<div style="padding:5px; border-bottom:1px solid #333; color:${ana?'#ef4444':'#fff'}">
+        ${i+1}位: ${r.no}番 (${r.score.toFixed(1)}pt)${ana?' !!伏兵!!':''}
+      </div>`;
+    }).join('');
+  }
+}
+</script>
+</body>
+</html>
