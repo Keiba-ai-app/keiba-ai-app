@@ -1,1 +1,137 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>競馬分析アプリ</title>
+  <link rel="manifest" href="manifest.json" />
+  <style>
+    body{margin:0;background:#020617;color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:16px}
+    .wrap{max-width:720px;margin:0 auto}
+    .card{background:#0f172a;padding:16px;border:1px solid #334155;border-radius:16px}
+    .panel{background:#1e293b;padding:12px;border-radius:12px;margin-bottom:12px}
+    input,select,textarea,button{box-sizing:border-box;font:inherit}
+    input,select,textarea{width:100%;padding:12px;background:#0f172a;color:#fff;border:1px solid #475569;border-radius:8px}
+    textarea{min-height:180px;resize:vertical}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+    .row{display:flex;gap:8px;margin-bottom:15px}
+    .toggle{flex:1;padding:14px;background:#334155;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer}
+    .run{width:100%;padding:20px;background:#2563eb;color:#fff;border:none;border-radius:12px;font-weight:700;font-size:20px;cursor:pointer;box-shadow:0 4px 0 #1e40af}
+    .run:active{transform:translateY(4px);box-shadow:none}
+    .betbox{background:#111827;border:1px solid #334155;border-radius:12px;padding:12px;margin-top:10px}
+    .section-title{font-weight:800;margin:16px 0 8px}
+    .muted{color:#94a3b8;font-size:13px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="panel">
+        <input id="inDist" type="text" placeholder="距離 (例: 1200)" />
+        <div class="grid" style="margin-top:8px;">
+          <select id="selCond">
+            <option value="">馬場状態</option><option value="良">良</option><option value="稍重">稍重</option><option value="重">重</option><option value="不良">不良</option>
+          </select>
+          <select id="selCourse">
+            <option value="">競馬場</option>
+            <optgroup label="中央"><option value="中京">中京</option><option value="中山">中山</option><option value="阪神">阪神</option><option value="東京">東京</option></optgroup>
+            <optgroup label="地方"><option value="大井">大井</option><option value="船橋">船橋</option><option value="川崎">川崎</option><option value="浦和">浦和</option><option value="高知">高知</option></optgroup>
+          </select>
+        </div>
+      </div>
 
+      <div class="row">
+        <button type="button" id="btnAnti" class="toggle">1人気消し</button>
+        <button type="button" id="btnW" class="toggle">W軸(1着2頭)</button>
+      </div>
+
+      <div class="section-title">貼り付けデータ</div>
+      <textarea id="rawGrid" placeholder="タブ区切りで貼り付け&#10;例: 1	馬名	1	2.5	88	中山1200良"></textarea>
+      <div class="muted">形式: 馬番 / 馬名 / 人気 / オッズ / スコア / 条件文字列</div>
+
+      <button type="button" id="runBtn" class="run">🚀 分析実行</button>
+
+      <div class="section-title">買い目</div>
+      <div id="bet3tanM" class="betbox">【3連単マルチ】未実行</div>
+      <div id="bet3tanF" class="betbox">【3連単F】未実行</div>
+      <div id="bet3pukuF" class="betbox">【3連複F】未実行</div>
+
+      <div class="section-title">ランキング</div>
+      <div id="horseList" class="betbox">ここに結果が表示されます</div>
+    </div>
+  </div>
+
+<script>
+window.fA = false;
+window.fW = false;
+
+function updateButtons(){
+  var anti=document.getElementById('btnAnti');
+  var w=document.getElementById('btnW');
+  anti.style.background=window.fA?'#ef4444':'#334155';
+  w.style.background=window.fW?'#f59e0b':'#334155';
+}
+
+document.getElementById('btnAnti').addEventListener('click', function(){
+  window.fA=!window.fA; updateButtons(); document.getElementById('runBtn').click();
+});
+document.getElementById('btnW').addEventListener('click', function(){
+  window.fW=!window.fW; updateButtons(); document.getElementById('runBtn').click();
+});
+
+document.getElementById('runBtn').addEventListener('click', function(){
+  var raw = document.getElementById('rawGrid');
+  if(!raw || !raw.value.trim()) { alert('データを入力してください'); return; }
+
+  var lines = raw.value.split(/\r?\n/).filter(function(l){ return l.trim() !== ''; });
+  var data = lines.map(function(line){
+    var d = line.split('\t');
+    var s = parseFloat(d[4]) || 0;
+    var o = parseFloat(d[3]) || 0;
+    var info = (d[1] || '') + (d[5] || '');
+    if(document.getElementById('inDist').value && info.includes(document.getElementById('inDist').value)) s += 5;
+    if(document.getElementById('selCond').value && info.includes(document.getElementById('selCond').value)) s += 5;
+    if(document.getElementById('selCourse').value && info.includes(document.getElementById('selCourse').value)) s += 5;
+    return { no: d[0] || '', name: d[1] || '', pop: parseInt(d[2], 10) || 99, odds: o, score: s };
+  }).filter(function(r){ return r.no !== ''; });
+
+  if(!data.length){ alert('有効なデータがありません'); return; }
+
+  data.sort(function(a,b){ return b.score - a.score; });
+  var jiku = window.fA ? data.filter(function(r){ return r.pop !== 1; })[0] : data[0];
+  if(!jiku) jiku = data[0];
+  var aite = data.filter(function(r){ return r.no !== jiku.no; });
+  if(!aite.length){ alert('相手候補が足りません'); return; }
+
+  var h5 = aite.slice(0, 5).map(function(h){ return h.no; }).sort(function(a,b){ return Number(a)-Number(b); });
+  var f2 = aite.slice(5).filter(function(r){ return r.score > 40; }).slice(0, 2).map(function(f){ return f.no; });
+  var comb = h5.concat(f2).sort(function(a,b){ return Number(a)-Number(b); });
+  var first = window.fW && aite[0] ? [jiku.no, aite[0].no].sort(function(a,b){ return Number(a)-Number(b); }).join(',') : jiku.no;
+
+  function set(id, html){ var el=document.getElementById(id); if(el) el.innerHTML = html; }
+  set('bet3tanM', '<b>【3連単マルチ】</b> 軸 ' + jiku.no + ' ↔ ' + h5.join(', '));
+  set('bet3tanF', '<b>【3連単F】</b> ' + first + ' → ' + comb.join(',') + ' → 全');
+  set('bet3pukuF', '<b>【3連複F】</b> ' + first + ' / ' + h5.join(',') + ' / 全');
+
+  var target = document.getElementById('horseList');
+  if(target) {
+    var maxS = Math.max.apply(null, data.map(function(d){ return d.score; }));
+    target.innerHTML = data.map(function(r, i){
+      var gapNum = (i < data.length - 1 && r.odds > 0 && data[i+1].odds > 0) ? (data[i+1].odds / r.odds) : 1;
+      var gap = gapNum.toFixed(1);
+      var isGap = gapNum >= 1.5;
+      var width = maxS > 0 ? (r.score / maxS * 100) : 0;
+      return '<div style="padding:10px 0; border-bottom:1px solid #334155;' + (isGap ? ' border-bottom:2px solid #ef4444;' : '') + '">' +
+        '<div style="display:flex; justify-content:space-between; font-weight:bold; font-size:14px; gap:10px;">' +
+        '<span>' + (i+1) + '. ' + r.no + ' ' + r.name + '</span><span>' + r.score.toFixed(1) + 'pt</span></div>' +
+        '<div style="width:100%; height:10px; background:#0f172a; border-radius:5px; margin-top:5px; overflow:hidden;">' +
+        '<div style="width:' + width + '%; height:100%; background:linear-gradient(90deg, #3b82f6, #60a5fa); border-radius:5px;"></div></div>' +
+        (isGap ? '<div style="color:#ef4444; font-size:11px; text-align:right; font-weight:bold;">▲ 断層 ' + gap + '倍</div>' : '') +
+      '</div>';
+    }).join('');
+  }
+});
+updateButtons();
+</script>
+</body>
+</html>
