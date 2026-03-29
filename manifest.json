@@ -1,1 +1,9 @@
-
+{
+  "name": "競馬AI V6Fix",
+  "short_name": "競馬V6Fix",
+  "display": "standalone",
+  "start_url": "./index.html",
+  "background_color": "#000814",
+  "theme_color": "#0074D9",
+  "lang": "ja"
+}
