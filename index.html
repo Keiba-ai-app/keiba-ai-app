@@ -1,1 +1,151 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>競馬AI V7.0.1 フルセレクト版</title>
+<style>
+body{margin:0;background:#081121;color:#fff;font-family:sans-serif;line-height:1.4}
+.wrap{max-width:100%;margin:0 auto;padding:10px;box-sizing:border-box}
+.banner{background:linear-gradient(135deg, #1e40af, #7c2d12);border-radius:12px;padding:12px;font-weight:900;margin-bottom:10px;text-align:center}
+.card{background:#0f172a;border:1px solid #233252;border-radius:15px;padding:15px;margin-bottom:12px}
+.title{font-size:16px;font-weight:900;margin-bottom:10px;color:#f59e0b;border-left:4px solid #f59e0b;padding-left:8px}
+.v_bet{font-size:15px;color:#f59e0b;font-family:monospace;white-space:pre-wrap;background:#000;padding:12px;border-radius:8px;margin-top:5px;border:1px solid #334155}
+textarea{width:100%;box-sizing:border-box;background:#091325;color:#fff;border:1px solid #334155;border-radius:8px;padding:12px;font-size:16px}
+button.exec{width:100%;border:none;border-radius:12px;padding:20px;font-size:20px;font-weight:900;background:#f59e0b;color:#111827;box-shadow:0 4px 0 #b45309;cursor:pointer;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="banner">競馬AI V7.0.1 - フルセレクト版</div>
 
+  <div class="card">
+    <div style="background:#111; padding:12px; border:2px solid #444; color:#fff; border-radius:10px;">
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:10px;">
+        <select id="selCourse" onchange="calc()" style="padding:10px; background:#333; color:#fff; border:1px solid #555;">
+          <option value="">競馬場選択</option>
+          <optgroup label="中央">
+            <option value="中京">中京</option><option value="中山">中山</option><option value="阪神">阪神</option>
+            <option value="東京">東京</option><option value="京都">京都</option><option value="新潟">新潟</option>
+            <option value="小倉">小倉</option><option value="函館">函館</option><option value="札幌">札幌</option><option value="福島">福島</option>
+          </optgroup>
+          <optgroup label="地方">
+            <option value="大井">大井</option><option value="船橋">船橋</option><option value="川崎">川崎</option>
+            <option value="浦和">浦和</option><option value="門別">門別</option><option value="高知">高知</option><option value="園田">園田</option>
+          </optgroup>
+        </select>
+        <select id="selDir" onchange="calc()" style="padding:10px; background:#333; color:#fff; border:1px solid #555;">
+          <option value="">回り</option>
+          <option value="左">左回り</option>
+          <option value="右">右回り</option>
+        </select>
+        <select id="selCondition" onchange="calc()" style="padding:10px; background:#333; color:#fff; border:1px solid #555;">
+          <option value="">馬場状態</option>
+          <option value="良">良</option>
+          <option value="稍重">稍重</option>
+          <option value="重">重</option>
+          <option value="不良">不良</option>
+        </select>
+        <select id="selDist" onchange="calc()" style="padding:10px; background:#333; color:#fff; border:1px solid #555;">
+          <option value="">距離</option>
+          <option value="1200">1200m</option><option value="1400">1400m</option><option value="1600">1600m</option><option value="2000">2000m</option>
+        </select>
+      </div>
+
+      <div style="display:flex; gap:8px; margin-bottom:10px;">
+        <button id="btnAnti" onclick="toggleAnti()" style="flex:1; padding:12px; background:#444; color:#fff; border:none; border-radius:5px; font-weight:bold;">1人気消し</button>
+        <button id="btnDouble" onclick="toggleDouble()" style="flex:1; padding:12px; background:#444; color:#fff; border:none; border-radius:5px; font-weight:bold;">W軸(1着2頭)</button>
+      </div>
+    </div>
+
+    <label style="display:block;font-size:12px;color:#cbd5e1;margin:10px 0 6px;">入力（タブ区切り: 馬番 馬名 人気 オッズ スコア 詳細）</label>
+    <textarea id="rawGrid" rows="8" placeholder="1	馬名	3	5.2	72	中京 左 良 1200"></textarea>
+    <button class="exec" onclick="calc()">分析実行</button>
+  </div>
+
+  <div class="card">
+    <div class="title">💰 買い目</div>
+    <div id="bet3tanM" class="v_bet">-</div>
+    <div id="bet3tanF" class="v_bet" style="margin-top:10px">-</div>
+    <div id="bet3pukuF" class="v_bet" style="margin-top:10px">-</div>
+  </div>
+
+  <div class="card">
+    <div class="title">📋 ランキング</div>
+    <div id="horseList" style="font-size:14px"></div>
+  </div>
+</div>
+
+<script>
+let antiFav = false;
+let doubleJiku = false;
+
+function toggleAnti() {
+  antiFav = !antiFav;
+  document.getElementById('btnAnti').style.background = antiFav ? '#ef4444' : '#444';
+  calc();
+}
+
+function toggleDouble() {
+  doubleJiku = !doubleJiku;
+  document.getElementById('btnDouble').style.background = doubleJiku ? '#f59e0b' : '#444';
+  calc();
+}
+
+const $ = (id) => document.getElementById(id);
+const n = (v) => parseFloat(v) || 0;
+
+function calc() {
+  const input = $('rawGrid').value;
+  if(!input) return;
+
+  const lines = input.split('\n').filter(l => l.trim());
+  let allRows = lines.map(line => {
+    const d = line.split('\t');
+    let score = n(d[4]);
+    let detail = (d[1] || "") + (d[5] || "");
+
+    // 条件一致でスコア加算
+    if($('selCourse').value && detail.includes($('selCourse').value)) score += 5;
+    if($('selDir').value && detail.includes($('selDir').value)) score += 5;
+    if($('selCondition').value && detail.includes($('selCondition').value)) score += 5;
+    if($('selDist').value && detail.includes($('selDist').value)) score += 5;
+
+    return { no: d[0], name: d[1], pop: n(d[2]), score: score };
+  }).filter(r => r.no && r.name);
+
+  if(allRows.length === 0) return;
+
+  let rankRows = [...allRows].sort((a,b) => b.score - a.score);
+  let jiku = (antiFav) ? rankRows.filter(r => r.pop !== 1)[0] : rankRows[0];
+  if(!jiku) jiku = rankRows[0];
+  let aiteList = rankRows.filter(r => r.no !== jiku.no);
+
+  // 本線5頭 + 伏兵2頭
+  let honsen5 = aiteList.slice(0, 5);
+  let fukuhei2 = aiteList.slice(5).filter((r) => {
+    let gIdx = rankRows.findIndex(x => x.no === r.no);
+    return ((gIdx > 0) && (rankRows[gIdx-1].score - r.score > 8)) || (gIdx >= 10 && r.score > 40);
+  }).slice(0, 2);
+
+  const hNos = honsen5.map(a=>a.no).sort((x,y)=>n(x)-n(y));
+  const combined = [...new Set([...hNos, ...fukuhei2.map(a=>a.no)])].sort((x,y)=>n(x)-n(y));
+  let firstRow = (doubleJiku && aiteList[0]) ? [jiku.no, aiteList[0].no].sort((a,b)=>n(a)-n(b)).join(',') : jiku.no;
+
+  // 買い目表示（各IDの枠に出力）
+  if($('bet3tanM')) $('bet3tanM').innerHTML = `<b>【3連単マルチ 60点】</b><br>軸 ${jiku.no} ↔ 相手 ${hNos.join(', ')}`;
+  if($('bet3tanF')) $('bet3tanF').innerHTML = `<b>【3連単F】</b><br>${firstRow} → ${combined.join(',')} → 3着全網羅(18頭)`;
+  if($('bet3pukuF')) $('bet3pukuF').innerHTML = `<b>【3連複F】</b><br>${firstRow} / ${combined.join(',')} / 全網羅`;
+
+  // リスト表示
+  let target = $('horseList') || $('ranking');
+  if(target) {
+    target.innerHTML = rankRows.map((r, i) => {
+      let isAna = fukuhei2.some(f => f.no === r.no);
+      return `<div style="padding:4px; border-bottom:1px solid #333; color:${isAna?'#ef4444':'#fff'}">${i+1}位: ${r.no} (${r.score.toFixed(1)}pt)${isAna?' !!':''}</div>`;
+    }).join('');
+  }
+}
+</script>
+</body>
+</html>
