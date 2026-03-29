@@ -1,1 +1,9 @@
-
+{
+  "name": "競馬AI V7.0.1 コース適性復活版",
+  "short_name": "競馬AI",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#081121",
+  "theme_color": "#081121",
+  "lang": "ja"
+}
