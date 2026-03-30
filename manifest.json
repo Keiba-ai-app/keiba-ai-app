@@ -1,9 +1,1 @@
-{
-  "name": "競馬AI分析 V8.0 Ultra Layer",
-  "short_name": "競馬AI分析V8",
-  "display": "standalone",
-  "start_url": "./index.html",
-  "background_color": "#020617",
-  "theme_color": "#020617",
-  "lang": "ja"
-}
+
