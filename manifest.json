@@ -1,1 +1,10 @@
-
+{
+  "name": "AI競馬分析 V9.0 Ultimate",
+  "short_name": "競馬AI V9.0",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#1e40af",
+  "lang": "ja",
+  "icons": []
+}
