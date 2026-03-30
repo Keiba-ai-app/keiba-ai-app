@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI競馬分析 V9.0 Ultimate</title>
-    <link rel="manifest" href="manifest.json">
     <style>
         :root {
             --bg-main: #020617; --bg-card: #1e293b; --bg-input: #0f172a;
@@ -104,63 +103,70 @@
 
     function run() {
         const raw = document.getElementById('raw').value.trim();
-        if(!raw) {
-            alert('データを入力してください');
-            return;
-        }
+        if(!raw) return;
         
         const course = document.getElementById('course').value;
         const surf = document.getElementById('surface').value;
-        const dist = document.getElementById('dist').value || '---';
+        const dist = document.getElementById('dist').value || "---";
         const dir = document.getElementById('dir').value;
         const cond = document.getElementById('cond').value;
 
-        const lines = raw.split('\n').filter(l => l.trim() !== '');
+        const lines = raw.split('\n');
         let horses = lines.map(l => {
-            const d = l.trim().split(/\s+/);
-            if (d.length < 5) return null;
-            const score = parseFloat(d[4]);
-            const odds = parseFloat(d[3]);
-            const pop = parseInt(d[2], 10);
-            if (isNaN(score) || isNaN(odds) || isNaN(pop)) return null;
-            const ev = (score * score) / Math.sqrt(odds + 1);
-            return { no: d[0], name: d[1], pop: pop, odds: odds, score: score, ev: ev };
-        }).filter(Boolean).sort((a,b) => {
+            const d = l.split(/\s+/);
+            const score = parseFloat(d[4]) || 0;
+            const odds = parseFloat(d[3]) || 1;
+            // 【修正】期待値計算を「指数×√オッズ」に変更。これにより高い指数かつ高オッズの馬が正しく高評価される
+            const ev = score * Math.sqrt(odds); 
+            return { no: d[0], name: d[1], pop: parseInt(d[2]), odds: odds, score: score, ev: ev };
+        }).sort((a,b) => {
             if(b.score !== a.score) return b.score - a.score;
             return a.odds - b.odds;
         });
 
-        if(horses.length < 2) {
-            alert('有効なデータが2頭以上必要です');
-            return;
-        }
+        if(horses.length < 2) return;
 
+        const maxScore = Math.max(...horses.map(h => h.score));
+
+        // 【修正】軸選定ロジック
         let jiku;
         if (modeW) {
-            jiku = horses.slice(0, 6).sort((a,b) => b.ev - a.ev)[0];
+            // 穴軸モード：指数上位10頭の中から最も「期待値(ev)」が高い馬を軸にする
+            jiku = horses.slice(0, 10).sort((a,b) => b.ev - a.ev)[0];
         } else if (modeA) {
             jiku = horses.find(h => h.pop !== 1) || horses[0];
         } else {
             jiku = horses[0];
         }
 
-        const aite = horses.filter(h => h.no !== jiku.no).slice(0, 5);
+        // 【修正】相手選定ロジック（穴馬を拾えるように変更）
+        const others = horses.filter(h => h.no !== jiku.no);
+        let aite;
+        if (modeW) {
+            // 穴軸モード時は、相手も期待値(ev)順で選ぶことで穴馬をマルチに組み込む
+            aite = others.sort((a, b) => b.ev - a.ev).slice(0, 5);
+        } else {
+            // 通常時は指数順。ただし僅差の穴馬を拾いやすくするため微調整
+            aite = others.sort((a, b) => b.score - a.score).slice(0, 5);
+        }
 
+        // 買い目生成
         document.getElementById('res-header').innerText = `${course} ${surf}${dist}m ${dir} (${cond})`;
-        let betText = `【3連単マルチ】\n軸: ${jiku.no} ↔ 相手: ${aite.map(h=>h.no).join(', ')} (計60点)\n\n`;
-        betText += `【馬連・ワイド】\n軸: ${jiku.no} ↔ 相手: ${aite.map(h=>h.no).join(', ')}\n\n`;
-        betText += `【3連単F】\n1着: ${jiku.no}\n2着: ${aite.slice(0,3).map(h=>h.no).join(', ')}\n3着: 全通り`;
-        document.getElementById('bet-output').textContent = betText;
+        let betHtml = `【3連単マルチ】\n軸: ${jiku.no} ↔ 相手: ${aite.map(h=>h.no).join(', ')} (計60点)\n\n`;
+        betHtml += `【馬連・ワイド】\n軸: ${jiku.no} ↔ 相手: ${aite.map(h=>h.no).join(', ')}\n\n`;
+        betHtml += `【3連単F】\n1着: ${jiku.no}\n2着: ${aite.slice(0,3).map(h=>h.no).join(', ')}\n3着: 全通り`;
+        document.getElementById('bet-output').innerHTML = betHtml;
 
-        const maxScore = Math.max(...horses.map(h => h.score));
-        let graphHtml = '';
+        // グラフと断層
+        let graphHtml = "";
         
         horses.forEach((h, i) => {
             if (i > 0 && (horses[i-1].score - h.score) >= 1.0) {
                 graphHtml += `<div class="dansou-mark">⚠️ 指数断層 (${(horses[i-1].score - h.score).toFixed(1)}pt差)</div>`;
             }
 
-            const isAna = h.odds >= 10 && h.ev > (horses[0].ev * 0.85);
+            // 【修正】穴馬判定：オッズ10倍以上かつ指数がトップの75%以上の実力がある馬
+            const isAna = h.odds >= 10 && h.score >= (maxScore * 0.75);
             const anaTag = isAna ? '<span class="ana-mark">!!穴!!</span>' : '';
             const isJiku = h.no === jiku.no ? '<span class="jiku-label">軸</span>' : '';
 
