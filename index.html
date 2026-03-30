@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI競馬分析 V19.0 Ghost AI</title>
+    <title>AI競馬分析 V20.0 Quantum Stable</title>
     <style>
         :root {
             --bg-main: #020617; --bg-card: #1e293b; --bg-input: #0f172a;
@@ -80,8 +80,8 @@
             <button id="btnW" class="tgl" onclick="toggle('W')">穴軸モード</button>
         </div>
 
-        <textarea id="raw" placeholder="ここにコピーしたデータを貼り付け"></textarea>
-        <button class="exec-btn" onclick="run()">🚀 究極分析・買い目生成</button>
+        <textarea id="raw" placeholder="1 パンジャタワー 3 5.0 58.0 ..."></textarea>
+        <button class="exec-btn" onclick="run()">🚀 分析・買い目生成</button>
     </div>
 
     <div id="res-area" style="display:none;">
@@ -91,4 +91,33 @@
             <div id="bet-output" style="white-space: pre-wrap; font-family: monospace; font-size: 13px;"></div>
         </div>
         <div class="card" style="border-left-color: #ff00ff;">
-            <div class="section-title" style="color:#f
+            <div class="section-title" style="color:#ff00ff">【全頭指数ランキング / 断層分析】</div>
+            <div id="graph-output"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let modeA = false, modeW = false;
+    function toggle(m) {
+        if(m==='A') { modeA = !modeA; document.getElementById('btnA').classList.toggle('active'); }
+        if(m==='W') { modeW = !modeW; document.getElementById('btnW').classList.toggle('active'); }
+    }
+
+    function run() {
+        const text = document.getElementById('raw').value.trim();
+        if(!text) { alert("データを入力してください"); return; }
+        
+        try {
+            const course = document.getElementById('course').value;
+            const surf = document.getElementById('surface').value;
+            const dist = document.getElementById('dist').value || "---";
+            const condLabel = document.getElementById('cond').options[document.getElementById('cond').selectedIndex].text;
+            const isRough = (document.getElementById('cond').value === 'heavy' || document.getElementById('cond').value === 'bad');
+
+            // --- 強力なデータ解析エンジン ---
+            const lines = text.split('\n').filter(l => l.trim().length > 2);
+            let horses = [];
+
+            lines.forEach(line => {
+                // 不要な文字を徹底除去
