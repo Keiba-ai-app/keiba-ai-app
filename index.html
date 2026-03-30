@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI競馬分析 V12.0 Professional</title>
+    <title>AI競馬分析 V12.1 Fixed</title>
     <style>
         :root {
             --bg-main: #020617; --bg-card: #1e293b; --bg-input: #0f172a;
@@ -104,8 +104,8 @@
     }
 
     function run() {
-        const raw = document.getElementById('raw').value.trim();
-        if(!raw) return;
+        const rawText = document.getElementById('raw').value.trim();
+        if(!rawText) return;
         
         const course = document.getElementById('course').value;
         const surf = document.getElementById('surface').value;
@@ -113,58 +113,57 @@
         const dir = document.getElementById('dir').value;
         const cond = document.getElementById('cond').value;
 
-        const lines = raw.split('\n');
+        // 空行を除外してパース（ここがクラッシュ対策）
+        const lines = rawText.split('\n').filter(l => l.trim() !== "");
         let horses = lines.map(l => {
-            const d = l.split(/\s+/);
+            const d = l.trim().split(/\s+/);
+            if(d.length < 4) return null; // データ不足行は無視
+
             const rScore = parseFloat(d[4]) || 0;
             const pop = parseInt(d[2]) || 10;
             const odds = parseFloat(d[3]) || 1;
             
-            // 指数の算出（人気順による基本的な能力値を反映）
-            const score = parseFloat((rScore + (10 / (pop + 1))).toFixed(2));
-            // 期待値：穴軸モード用の指標
+            // 指数計算：通常時は人気も重視して安定度を出す
+            const score = parseFloat((rScore + (15 / (pop + 1))).toFixed(2));
             const ev = score * Math.log10(odds + 2); 
             
             return { no: d[0], name: d[1], pop: pop, odds: odds, score: score, ev: ev, raw: rScore };
-        }).sort((a,b) => b.score - a.score);
+        }).filter(h => h !== null).sort((a,b) => b.score - a.score);
 
         if(horses.length < 2) return;
 
-        // 【軸の決定】ロジックを分離
+        // 【軸の選定】
         let jiku;
         let pool = [...horses];
         if (modeA) pool = pool.filter(h => h.pop !== 1);
 
         if (modeW) {
-            // 穴軸モード：期待値(EV)が最大の馬を推奨。爆発力重視。
+            // 穴軸モード：期待値(EV)が最大の馬を軸に（穴馬になりやすい）
             jiku = pool.sort((a,b) => b.ev - a.ev)[0];
         } else {
-            // 通常モード：指数(Score)が最大の馬を推奨。安定度・実力重視。
-            // これにより、通常の時は指数の高い人気サイドが軸になります。
+            // 通常モード：指数(Score)が最大の馬を軸に（人気サイドの実力馬になりやすい）
             jiku = pool.sort((a,b) => b.score - a.score)[0];
         }
 
         const others = horses.filter(h => h.no !== jiku.no);
-        // 相手選定：軸が何であれ、相手には指数上位（実力馬）を必ず含める
         const honsen = others.sort((a,b) => b.score - a.score).slice(0, 3);
         const osae = others.filter(h => !honsen.includes(h)).sort((a,b) => b.ev - a.ev).slice(0, 3);
 
         document.getElementById('res-header').innerText = `${course} ${surf}${dist}m ${dir} (${cond})`;
         let betHtml = `【推奨軸】 ${jiku.no} (${jiku.name}) ${jiku.pop}人/${jiku.odds}倍\n\n`;
-        betHtml += `【推奨相手】\n ●本線(実力): ${honsen.map(h=>h.no).join(', ')}\n ◯抑え(伏兵): ${osae.map(h=>h.no).join(', ')}\n\n`;
-        betHtml += `【買い目例】\n・馬連/ワイド流し: ${jiku.no} ↔ ${honsen.concat(osae).map(h=>h.no).join(', ')}\n・3連複1頭軸: ${jiku.no} - (${honsen.concat(osae).map(h=>h.no).join(', ')})`;
+        betHtml += `【推奨相手】\n ●本線: ${honsen.map(h=>h.no).join(', ')}\n ◯抑え: ${osae.map(h=>h.no).join(', ')}\n\n`;
+        betHtml += `【買い目例】\n・馬連/ワイド流し: ${jiku.no} ↔ 全て\n・3連複1頭軸: ${jiku.no} - (${honsen.concat(osae).map(h=>h.no).join(', ')})`;
         document.getElementById('bet-output').innerHTML = betHtml;
 
         const maxScore = Math.max(...horses.map(h => h.score));
         let graphHtml = "";
         
         horses.forEach((h, i) => {
-            if (i > 0 && (horses[i-1].score - h.score) >= 0.8) {
+            if (i > 0 && (horses[i-1].score - h.score) >= 0.7) {
                 graphHtml += `<div class="dansou-mark">⚠️ 指数断層 (${(horses[i-1].score - h.score).toFixed(1)}pt差)</div>`;
             }
 
             let anaTag = "";
-            // 穴表示の基準を厳格化（迷わせないため）
             if (h.odds >= 30 && h.raw >= 55) {
                 anaTag = '<span class="bakuan-mark">!!爆穴!!</span>';
             } else if (h.odds >= 10 && h.ev > (horses[0].ev * 0.85)) {
@@ -180,3 +179,14 @@
                         <span>${h.score.toFixed(1)}pt</span>
                     </div>
                     <div class="bar-bg">
+                        <div class="bar-fill ${anaTag !== '' ? 'ana' : ''}" style="width:${(h.score/maxScore*100)}%"></div>
+                    </div>
+                </div>`;
+        });
+
+        document.getElementById('graph-output').innerHTML = graphHtml;
+        document.getElementById('res-area').style.display = 'block';
+    }
+</script>
+</body>
+</html>
