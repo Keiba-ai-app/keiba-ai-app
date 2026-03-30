@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI競馬分析 V17.0 Predator Hybrid</title>
+    <title>AI競馬分析 V18.0 Predator Hybrid</title>
     <style>
         :root {
             --bg-main: #020617; --bg-card: #1e293b; --bg-input: #0f172a;
@@ -80,7 +80,7 @@
             <button id="btnW" class="tgl" onclick="toggle('W')">穴軸モード</button>
         </div>
 
-        <textarea id="raw" placeholder="1 パンジャタワー 3 5.0 58.0 ..."></textarea>
+        <textarea id="raw" placeholder="データをここに貼り付け"></textarea>
         <button class="exec-btn" onclick="run()">🚀 究極分析・買い目生成</button>
     </div>
 
@@ -101,99 +101,4 @@
     let modeA = false, modeW = false;
     function toggle(m) {
         if(m==='A') { modeA = !modeA; document.getElementById('btnA').classList.toggle('active'); }
-        if(m==='W') { modeW = !modeW; document.getElementById('btnW').classList.toggle('active'); }
-    }
-
-    function run() {
-        const txt = document.getElementById('raw').value.trim();
-        if(!txt) { alert("データが入力されていません"); return; }
-        
-        try {
-            const course = document.getElementById('course').value;
-            const surf = document.getElementById('surface').value;
-            const dist = document.getElementById('dist').value || "---";
-            const condLabel = document.getElementById('cond').options[document.getElementById('cond').selectedIndex].text;
-            const isRough = (document.getElementById('cond').value === 'heavy' || document.getElementById('cond').value === 'bad');
-
-            const lines = txt.split('\n').filter(l => l.trim().length > 3);
-            let hList = lines.map(line => {
-                // 全角スペースと「倍」「人気」を除去
-                const clean = line.replace(/　/g, ' ').replace(/倍|人気/g, '').trim();
-                const parts = clean.split(/\s+/);
-                
-                const no = parts[0];
-                const name = parts[1];
-                
-                // 数値項目を賢く抽出（順不同でも対応）
-                const nums = parts.slice(2).map(v => parseFloat(v)).filter(v => !isNaN(v));
-                
-                const pop = nums.find(v => v > 0 && v <= 20) || 10;
-                const odds = nums.find(v => v > 1 && v < 999 && v !== pop) || 10.0;
-                const rScore = nums.find(v => v > 40 && v < 80) || 50.0;
-
-                // 期待値と補正スコア
-                const score = parseFloat((rScore + (15 / (pop + 1)) + (odds/pop > 2 ? 0.6 : 0)).toFixed(4));
-                const ev = score * Math.sqrt(odds) * (isRough ? 1.25 : 1.0);
-
-                return { no, name, pop, odds, score, ev, raw: rScore };
-            }).filter(h => h.no && !isNaN(h.score));
-
-            if(hList.length < 3) throw new Error("解析可能なデータが足りません");
-
-            hList.sort((a,b) => b.score - a.score);
-
-            // 軸選定
-            let jiku;
-            let pool = [...hList];
-            if(modeA) pool = pool.filter(h => h.pop !== 1);
-            if(modeW) {
-                jiku = pool.slice(0, 10).sort((a,b) => b.ev - a.ev)[0];
-            } else {
-                jiku = pool[0];
-            }
-
-            // 【激走穴馬（4番）を逃さないハイブリッド相手選定】
-            const oPool = hList.filter(h => h.no !== jiku.no);
-            // 1. 本線（指数上位2頭）
-            const core = [...oPool].sort((a,b) => b.score - a.score).slice(0, 2);
-            // 2. 伏兵（残りから期待値上位3頭を抽出。ここで4番を拾う）
-            const value = oPool.filter(h => !core.some(c => c.no === h.no))
-                               .sort((a,b) => b.ev - a.ev).slice(0, 3);
-
-            const aite5 = [...core, ...value];
-            const aite4 = aite5.slice(0, 4);
-
-            document.getElementById('res-header').innerText = `${course} ${surf}${dist}m (${condLabel})`;
-            let bOut = `【推奨軸】 ${jiku.no} (${jiku.name}) ${jiku.pop}人/${jiku.odds}倍\n\n`;
-            bOut += `【推奨3連単マルチ】\n`;
-            bOut += `🔥 勝負(36点): ${jiku.no} ↔ 相手: ${aite4.map(h=>h.no).join(', ')}\n`;
-            bOut += `🎯 安定(60点): ${jiku.no} ↔ 相手: ${aite5.map(h=>h.no).join(', ')}\n\n`;
-            bOut += `【馬連・ワイド流し】\n   ${jiku.no} ↔ ${aite5.map(h=>h.no).join(', ')}`;
-            
-            document.getElementById('bet-output').innerHTML = bOut;
-
-            // グラフ
-            const maxS = Math.max(...hList.map(h => h.score));
-            let gOut = "";
-            hList.forEach((h, i) => {
-                if (i > 0 && (hList[i-1].score - h.score) >= 0.75) {
-                    gOut += `<div class="dansou-mark">⚠️ 指数断層 (${(hList[i-1].score - h.score).toFixed(2)}pt差)</div>`;
-                }
-                const isH = aite5.some(a => a.no === h.no && a.pop >= 6);
-                let tag = "";
-                if (h.odds >= 30 && h.score >= (hList[0].score * 0.85)) tag = '<span class="bakuan-mark">!!爆穴!!</span>';
-                else if (isH) tag = '<span class="ana-mark">狙い目</span>';
-
-                const isJ = h.no === jiku.no ? '<span class="jiku-label">推奨軸</span>' : '';
-                gOut += `<div class="bar-row"><div class="bar-info"><span>${isJ}${i+1}. ${h.no} ${h.name} <small>${h.odds}倍</small>${tag}</span><span>${h.score.toFixed(1)}pt</span></div><div class="bar-bg"><div class="bar-fill ${tag!==''?'ana':''}" style="width:${(h.score/maxS*100)}%"></div></div></div>`;
-            });
-            document.getElementById('graph-output').innerHTML = gOut;
-            document.getElementById('res-area').style.display = 'block';
-
-        } catch(e) {
-            alert("エラー: " + e.message + "\nデータの形式を確認してください。");
-        }
-    }
-</script>
-</body>
-</html>
+        if(m==='W') { modeW = !modeW; document.getElementById('btnW').classList.to
