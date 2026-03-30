@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI競馬分析 V10.0 Precision</title>
+    <title>AI競馬分析 V11.0 Strategic</title>
     <style>
         :root {
             --bg-main: #020617; --bg-card: #1e293b; --bg-input: #0f172a;
@@ -49,8 +49,15 @@
         <div class="section-title">Race Info</div>
         <div class="grid-3">
             <select id="course">
-                <option>東京</option><option>中山</option><option>中京</option><option>京都</option><option>阪神</option>
-                <option>札幌</option><option>函館</option><option>福島</option><option>新潟</option><option>小倉</option>
+                <optgroup label="中央競馬 (JRA)">
+                    <option>東京</option><option>中山</option><option>中京</option><option>京都</option><option>阪神</option>
+                    <option>札幌</option><option>函館</option><option>福島</option><option>新潟</option><option>小倉</option>
+                </optgroup>
+                <optgroup label="地方競馬 (NAR)">
+                    <option>大井</option><option>川崎</option><option>船橋</option><option>浦和</option><option>門別</option>
+                    <option>盛岡</option><option>水沢</option><option>金沢</option><option>笠松</option><option>名古屋</option>
+                    <option>園田</option><option>姫路</option><option>高知</option><option>佐賀</option><option>帯広</option>
+                </optgroup>
             </select>
             <select id="surface">
                 <option>芝</option><option>ダート</option>
@@ -111,4 +118,79 @@
             const d = l.split(/\s+/);
             const rScore = parseFloat(d[4]) || 0;
             const pop = parseInt(d[2]) || 10;
-            const od
+            const odds = parseFloat(d[3]) || 1;
+            
+            // 指数の微細化
+            let gapBonus = (rScore >= 55 && pop >= 10) ? (pop * 0.12) : 0;
+            const score = parseFloat((rScore + (15 / (pop + 1)) + gapBonus).toFixed(2));
+            const ev = score * Math.log10(odds + 1.5); 
+            
+            // 【新】軸評価スコア算出 (指数安定度 8 : 期待値 2)
+            const jikuScore = (score * 0.8) + (ev * 0.2);
+
+            return { no: d[0], name: d[1], pop: pop, odds: odds, score: score, ev: ev, raw: rScore, jikuScore: jikuScore };
+        }).sort((a,b) => b.score - a.score);
+
+        if(horses.length < 2) return;
+
+        // 【新】推奨軸の決定ロジック
+        let jiku;
+        let pool = [...horses];
+        
+        if (modeA) {
+            pool = pool.filter(h => h.pop !== 1);
+        }
+
+        if (modeW) {
+            // 穴軸モード：純粋に期待値(EV)が最大の馬を軸に
+            jiku = pool.sort((a,b) => b.ev - a.ev)[0];
+        } else {
+            // 通常：軸評価スコアで決定（1番人気が不安定なら他を推奨する）
+            jiku = pool.sort((a,b) => b.jikuScore - a.jikuScore)[0];
+        }
+
+        const others = horses.filter(h => h.no !== jiku.no);
+        const honsen = others.slice(0, 3);
+        const osae = others.filter(h => !honsen.includes(h)).sort((a,b) => b.ev - a.ev).slice(0, 3);
+
+        document.getElementById('res-header').innerText = `${course} ${surf}${dist}m ${dir} (${cond})`;
+        let betHtml = `【推奨軸】 ${jiku.no} (${jiku.name}) ${jiku.pop}人/${jiku.odds}倍\n\n`;
+        betHtml += `【推奨相手】\n ●本線: ${honsen.map(h=>h.no).join(', ')}\n ◯抑え: ${osae.map(h=>h.no).join(', ')}\n\n`;
+        betHtml += `【買い目例】\n・馬連/ワイド流し: ${jiku.no} ↔ 全て\n・3連複1頭軸: ${jiku.no} - (${honsen.concat(osae).map(h=>h.no).join(', ')})`;
+        document.getElementById('bet-output').innerHTML = betHtml;
+
+        const maxScore = Math.max(...horses.map(h => h.score));
+        let graphHtml = "";
+        
+        horses.forEach((h, i) => {
+            if (i > 0 && (horses[i-1].score - h.score) >= 0.7) {
+                graphHtml += `<div class="dansou-mark">⚠️ 指数断層 (${(horses[i-1].score - h.score).toFixed(1)}pt差)</div>`;
+            }
+
+            let anaTag = "";
+            if (h.odds >= 30 && h.raw >= 55) {
+                anaTag = '<span class="bakuan-mark">!!爆穴!!</span>';
+            } else if (h.odds >= 10 && h.ev > (horses[0].ev * 0.75)) {
+                anaTag = '<span class="ana-mark">穴</span>';
+            }
+
+            const isJiku = h.no === jiku.no ? '<span class="jiku-label">推奨軸</span>' : '';
+
+            graphHtml += `
+                <div class="bar-row">
+                    <div class="bar-info">
+                        <span>${isJiku}${i+1}. ${h.no} ${h.name} <small>${h.odds}倍</small>${anaTag}</span>
+                        <span>${h.score.toFixed(1)}pt</span>
+                    </div>
+                    <div class="bar-bg">
+                        <div class="bar-fill ${anaTag !== '' ? 'ana' : ''}" style="width:${(h.score/maxScore*100)}%"></div>
+                    </div>
+                </div>`;
+        });
+
+        document.getElementById('graph-output').innerHTML = graphHtml;
+        document.getElementById('res-area').style.display = 'block';
+    }
+</script>
+</body>
+</html>
