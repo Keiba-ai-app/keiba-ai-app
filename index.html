@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI競馬分析 V21.0 Final Edition</title>
+    <title>AI競馬分析 V22.0 Hyper-Robust</title>
     <style>
         :root {
             --bg-main: #020617; --bg-card: #1e293b; --bg-input: #0f172a;
@@ -80,10 +80,55 @@
             <button id="btnW" class="tgl" onclick="toggle('W')">穴軸モード</button>
         </div>
 
-        <textarea id="raw" placeholder="ここに全データを貼り付け"></textarea>
+        <textarea id="raw" placeholder="データをここに貼り付け（形式不問）"></textarea>
         <button id="execBtn" class="exec-btn" onclick="run()">🚀 分析開始・買い目生成</button>
     </div>
 
     <div id="res-area" style="display:none;">
-        <div id="error-console" style="color:var(--danger); font-size:10px; margin-bottom:5px;"></div>
-        <div class="card" style="border-lef
+        <div class="card" style="border-left-color: var(--success);">
+            <div id="res-header" style="font-weight:bold; font-size:12px; color:var(--muted); margin-bottom:5px;"></div>
+            <div class="section-title" style="color:#fff">【AI推奨買い目】</div>
+            <div id="bet-output" style="white-space: pre-wrap; font-family: monospace; font-size: 13px;"></div>
+        </div>
+        <div class="card" style="border-left-color: #ff00ff;">
+            <div class="section-title" style="color:#ff00ff">【全頭指数ランキング / 断層分析】</div>
+            <div id="graph-output"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let modeA = false, modeW = false;
+    function toggle(m) {
+        if(m==='A') { modeA = !modeA; document.getElementById('btnA').classList.toggle('active'); }
+        if(m==='W') { modeW = !modeW; document.getElementById('btnW').classList.toggle('active'); }
+    }
+
+    function run() {
+        const rawText = document.getElementById('raw').value.trim();
+        const btn = document.getElementById('execBtn');
+        if(!rawText) { alert("データを入力してください"); return; }
+        
+        btn.innerText = "⏳ 解析中...";
+
+        setTimeout(() => {
+            try {
+                const course = document.getElementById('course').value;
+                const surf = document.getElementById('surface').value;
+                const dist = document.getElementById('dist').value || "---";
+                const condLabel = document.getElementById('cond').options[document.getElementById('cond').selectedIndex].text;
+                const isRough = (document.getElementById('cond').value === 'heavy' || document.getElementById('cond').value === 'bad');
+
+                // --- 究極のデータ抽出ロジック ---
+                const lines = rawText.split('\n').filter(l => l.trim().length > 3);
+                let hList = [];
+
+                lines.forEach((line, idx) => {
+                    const clean = line.replace(/[　\t,()]/g, ' ').replace(/倍|人気|人|pt/g, '').trim();
+                    const parts = clean.split(/\s+/);
+                    if(parts.length < 2) return;
+
+                    const no = parts[0];
+                    const name = parts[1];
+                    // 数字だけを全抽出
+                    const nums = parts.slice(2).map(v =>
