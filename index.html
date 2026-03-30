@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI競馬分析 V15.0 Ultimate Hybrid</title>
+    <title>AI競馬分析 V15.1 Ultimate Hybrid</title>
     <style>
         :root {
             --bg-main: #020617; --bg-card: #1e293b; --bg-input: #0f172a;
@@ -81,7 +81,7 @@
         </div>
 
         <textarea id="raw" placeholder="馬番 名前 人気 オッズ 指数"></textarea>
-        <button class="exec-btn" onclick="run()">🚀 究極分析・買い目生成</button>
+        <button class="exec-btn" onclick="run()">🚀 分析・買い目生成</button>
     </div>
 
     <div id="res-area" style="display:none;">
@@ -106,71 +106,66 @@
 
     function run() {
         const rawText = document.getElementById('raw').value.trim();
-        if(!rawText) return;
+        if(!rawText) {
+            alert("データを入力してください");
+            return;
+        }
         
         const course = document.getElementById('course').value;
         const surf = document.getElementById('surface').value;
         const dist = parseInt(document.getElementById('dist').value) || 1200;
-        const condVal = document.getElementById('cond').value;
         const condLabel = document.getElementById('cond').options[document.getElementById('cond').selectedIndex].text;
+        const isRough = (document.getElementById('cond').value === 'heavy' || document.getElementById('cond').value === 'bad');
 
-        const isRough = (condVal === 'heavy' || condVal === 'bad');
-
-        // データパース
         const lines = rawText.split('\n').filter(l => l.trim() !== "");
-        let baseList = lines.map(l => {
-            const d = l.trim().split(/\s+/);
-            if(d.length < 4) return null;
-            const rScore = parseFloat(d[4]) || 0;
-            const pop = parseInt(d[2]) || 10;
-            const odds = parseFloat(d[3]) || 1;
-            
-            // 指数の精密化：小数点第4位まで算出して差をつける
-            let rankBias = (20 - pop) * 0.055; 
-            let oddsGap = (odds / pop > 1.8) ? 0.45 : 0; // 過小評価馬への強力ボーナス
-            const score = parseFloat((rScore + rankBias + oddsGap).toFixed(4));
-            const ev = score * Math.log10(odds + 1.2) * (isRough ? 1.25 : 1.0); 
-            
-            return { no: d[0], name: d[1], pop: pop, odds: odds, score: score, ev: ev, raw: rScore };
-        }).filter(h => h !== null).sort((a,b) => b.score - a.score);
+        let baseList = [];
 
-        if(baseList.length < 2) return;
+        try {
+            baseList = lines.map(l => {
+                const d = l.trim().split(/\s+/);
+                if(d.length < 4) return null;
+                const rScore = parseFloat(d[4]) || 0;
+                const pop = parseInt(d[2]) || 10;
+                const odds = parseFloat(d[3]) || 1;
+                
+                // 指数精密化
+                let rankBias = (20 - pop) * 0.05; 
+                let oddsGap = (odds / pop > 1.8) ? 0.5 : 0; 
+                const score = parseFloat((rScore + rankBias + oddsGap).toFixed(4));
+                const ev = score * Math.log10(odds + 1.2) * (isRough ? 1.2 : 1.0); 
+                
+                return { no: d[0], name: d[1], pop: pop, odds: odds, score: score, ev: ev, raw: rScore };
+            }).filter(h => h !== null);
+        } catch(e) {
+            alert("データの解析に失敗しました。形式を確認してください。");
+            return;
+        }
 
-        // 【軸選定】最下位人気が選ばれるのを防止しつつ最適な軸馬を導出
+        if(baseList.length < 3) return;
+
+        // 指数順でソート
+        baseList.sort((a,b) => b.score - a.score);
+
+        // 軸選定
         let jiku;
         let pool = [...baseList];
         if (modeA) pool = pool.filter(h => h.pop !== 1);
         
         if (modeW) {
-            // 穴軸：指数上位10頭の中から最も期待値(ev)が高い馬を推奨
             jiku = pool.slice(0, 10).sort((a,b) => b.ev - a.ev)[0];
         } else {
-            jiku = pool[0]; // 通常：実力NO.1馬を推奨
+            jiku = pool[0]; 
         }
 
-        // 【相手選定：ハイブリッドロジック】
-        // 4番のような「指数は低くても一発ある馬」を漏らさず拾う
         const otherPool = baseList.filter(h => h.no !== jiku.no);
         
-        // 1. 実力馬（指数上位2頭）
+        // 【ハイブリッド相手選出】
+        // 実力上位(Score順)2頭 ＋ 伏兵(EV順)3頭を抽出
         const coreAite = [...otherPool].sort((a,b) => b.score - a.score).slice(0, 2);
-        
-        // 2. 爆発馬（期待値上位3頭、指数下位からも拾う）
-        const valueAite = otherPool.filter(h => !coreAite.includes(h))
+        const valueAite = otherPool.filter(h => !coreAite.some(c => c.no === h.no))
                          .sort((a,b) => b.ev - a.ev).slice(0, 3);
 
-        const aite5 = [...coreAite, ...valueAite]; // 安定の60点用（5頭）
-        const aite4 = aite5.slice(0, 4);           // 勝負の36点用（4頭）
+        const aite5 = [...coreAite, ...valueAite]; 
+        const aite4 = aite5.slice(0, 4);
 
-        document.getElementById('res-header').innerText = `${course} ${surf}${dist}m (${condLabel})`;
-        let betHtml = `【推奨軸】 ${jiku.no} (${jiku.name}) ${jiku.pop}人/${jiku.odds}倍\n\n`;
-        
-        betHtml += `【推奨3連単マルチ】\n`;
-        betHtml += `🔥 勝負(36点): ${jiku.no} ↔ 相手: ${aite4.map(h=>h.no).join(', ')}\n`;
-        betHtml += `🎯 安定(60点): ${jiku.no} ↔ 相手: ${aite5.map(h=>h.no).join(', ')}\n\n`;
-        
-        betHtml += `【推奨馬連・ワイド流し】\n`;
-        betHtml += `   ${jiku.no} ↔ ${aite5.map(h=>h.no).join(', ')}\n\n`;
-        
-        betHtml += `【3連複1頭軸(6〜10点)】\n`;
-        betHtml += `   ${jiku.no} - (${aite5.map(h=>h.no).join(', ')})`;
+        document.getElementById('res-header').i
