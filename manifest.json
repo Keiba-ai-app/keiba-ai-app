@@ -1,1 +1,9 @@
-
+{
+  "name": "競馬AI分析 V8.8",
+  "short_name": "競馬AI分析V8.8",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#2563eb",
+  "icons": []
+}
