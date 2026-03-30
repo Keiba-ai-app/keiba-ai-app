@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI競馬分析 V18.0 Predator Hybrid</title>
+    <title>AI競馬分析 V19.0 Ghost AI</title>
     <style>
         :root {
             --bg-main: #020617; --bg-card: #1e293b; --bg-input: #0f172a;
@@ -80,7 +80,7 @@
             <button id="btnW" class="tgl" onclick="toggle('W')">穴軸モード</button>
         </div>
 
-        <textarea id="raw" placeholder="データをここに貼り付け"></textarea>
+        <textarea id="raw" placeholder="ここにコピーしたデータを貼り付け"></textarea>
         <button class="exec-btn" onclick="run()">🚀 究極分析・買い目生成</button>
     </div>
 
@@ -91,14 +91,4 @@
             <div id="bet-output" style="white-space: pre-wrap; font-family: monospace; font-size: 13px;"></div>
         </div>
         <div class="card" style="border-left-color: #ff00ff;">
-            <div class="section-title" style="color:#ff00ff">【全頭指数ランキング / 断層分析】</div>
-            <div id="graph-output"></div>
-        </div>
-    </div>
-</div>
-
-<script>
-    let modeA = false, modeW = false;
-    function toggle(m) {
-        if(m==='A') { modeA = !modeA; document.getElementById('btnA').classList.toggle('active'); }
-        if(m==='W') { modeW = !modeW; document.getElementById('btnW').classList.to
+            <div class="section-title" style="color:#f
