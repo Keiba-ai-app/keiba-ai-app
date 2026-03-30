@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI競馬分析 V13.6 Adaptive Engine</title>
+    <title>AI競馬分析 V14.5 Elite</title>
     <style>
         :root {
             --bg-main: #020617; --bg-card: #1e293b; --bg-input: #0f172a;
@@ -81,7 +81,7 @@
         </div>
 
         <textarea id="raw" placeholder="馬番 名前 人気 オッズ 指数"></textarea>
-        <button class="exec-btn" onclick="run()">🚀 分析・買い目生成</button>
+        <button class="exec-btn" onclick="run()">🚀 精鋭分析・買い目生成</button>
     </div>
 
     <div id="res-area" style="display:none;">
@@ -124,66 +124,77 @@
             const pop = parseInt(d[2]) || 10;
             const odds = parseFloat(d[3]) || 1;
             
-            let baseScore = isRough ? (rScore * 1.02) : (rScore + (10 / (pop + 1)));
-            const score = parseFloat(baseScore.toFixed(2));
-            const ev = score * Math.log2(odds + 1.2) * (isRough ? 1.15 : 1.0); 
+            // 【格差生成ロジック】
+            // 人気と実力のバランスから、小数点第4位までの微細な「適性値」を算出
+            let rankBias = (20 - pop) * 0.05; // 上位人気ほどわずかに底上げ
+            let oddsGap = (odds / pop > 1.5) ? 0.3 : 0; // 過小評価馬へのボーナス
+            const score = parseFloat((rScore + rankBias + oddsGap).toFixed(4));
+            
+            // 期待値(EV)
+            const ev = score * Math.log10(odds + 1.2) * (isRough ? 1.15 : 1.0); 
             return { no: d[0], name: d[1], pop: pop, odds: odds, score: score, ev: ev, raw: rScore };
-        }).filter(h => h !== null);
+        }).filter(h => h !== null).sort((a,b) => b.score - a.score);
 
         if(baseList.length < 2) return;
 
-        // 軸選定
+        // 【軸の厳選選定】
         let jiku;
-        let jikuPool = [...baseList];
-        if (modeA) jikuPool = jikuPool.filter(h => h.pop !== 1);
+        let pool = [...baseList];
+        if (modeA) pool = pool.filter(h => h.pop !== 1);
         
         if (modeW) {
-            jiku = jikuPool.sort((a,b) => b.ev - a.ev)[0];
+            // 穴軸：指数上位8頭の中から最も期待値(ev)が高い馬を選ぶ（最下位が選ばれるのを防止）
+            jiku = pool.slice(0, 8).sort((a,b) => b.ev - a.ev)[0];
+            // もし上位8頭に穴がいない場合は全体から期待値順
+            if (jiku.pop <= 3) jiku = pool.sort((a,b) => b.ev - a.ev)[0];
         } else {
-            jiku = jikuPool.sort((a,b) => b.score - a.score)[0];
+            jiku = pool[0]; // 通常は指数最高馬
         }
 
-        // 【新】相手選定ロジック：モードによって相手の並び順を変える
+        // 相手選定：軸との相性とモードで変化
         const otherPool = baseList.filter(h => h.no !== jiku.no);
-        let aite5 = [];
-
+        let sortedForAite;
         if (modeW || isRough) {
-            // 穴モード or 重馬場：
-            // 指数上位2頭（保険） + 期待値上位3頭（爆発力）を組み合わせて相手を構成
-            const strongHorses = [...otherPool].sort((a,b) => b.score - a.score).slice(0, 2);
-            const valueHorses = otherPool.filter(h => !strongHorses.includes(h)).sort((a,b) => b.ev - a.ev).slice(0, 3);
-            aite5 = [...strongHorses, ...valueHorses];
+            // 穴モード/荒れ馬場：保険として実力上位2頭＋期待値が高い3頭
+            const top2 = [...otherPool].sort((a,b) => b.score - a.score).slice(0, 2);
+            const ev3 = otherPool.filter(h => !top2.includes(h)).sort((a,b) => b.ev - a.ev).slice(0, 3);
+            sortedForAite = [...top2, ...ev3];
         } else {
-            // 通常：指数（Score）が高い順に5頭
-            aite5 = [...otherPool].sort((a,b) => b.score - a.score).slice(0, 5);
+            sortedForAite = [...otherPool].slice(0, 5);
         }
+        
+        const aite4 = sortedForAite.slice(0, 4);
+        const aite5 = sortedForAite.slice(0, 5);
 
         document.getElementById('res-header').innerText = `${course} ${surf}${dist}m (${condLabel})`;
         let betHtml = `【推奨軸】 ${jiku.no} (${jiku.name}) ${jiku.pop}人/${jiku.odds}倍\n\n`;
-        betHtml += `【推奨相手】\n ${aite5.map(h=>h.no).join(', ')}\n\n`;
-        betHtml += `【推奨買い目】\n`;
-        betHtml += `● 3連単マルチ(60点)\n   軸: ${jiku.no} ↔ 相手: ${aite5.map(h=>h.no).join(', ')}\n\n`;
-        betHtml += `● 馬連・ワイド流し\n   ${jiku.no} ↔ ${aite5.map(h=>h.no).join(', ')}\n\n`;
-        betHtml += `● 3連複1頭軸(10点)\n   ${jiku.no} - (${aite5.map(h=>h.no).join(', ')})`;
+        
+        betHtml += `【推奨3連単マルチ】\n`;
+        betHtml += `🔥 勝負(36点): ${jiku.no} ↔ 相手: ${aite4.map(h=>h.no).join(', ')}\n`;
+        betHtml += `🎯 安定(60点): ${jiku.no} ↔ 相手: ${aite5.map(h=>h.no).join(', ')}\n\n`;
+        
+        betHtml += `【推奨馬連・ワイド流し】\n`;
+        betHtml += `   ${jiku.no} ↔ ${aite5.map(h=>h.no).join(', ')}\n\n`;
+        
+        betHtml += `【3連複1頭軸(6〜10点)】\n`;
+        betHtml += `   ${jiku.no} - (${aite5.map(h=>h.no).join(', ')})`;
         
         document.getElementById('bet-output').innerHTML = betHtml;
 
-        // ランキング表示（ここは常に指数順で見やすく）
-        const displayHorses = [...baseList].sort((a,b) => b.score - a.score);
-        const maxScore = Math.max(...displayHorses.map(h => h.score));
+        const maxScore = Math.max(...baseList.map(h => h.score));
         let graphHtml = "";
         
-        displayHorses.forEach((h, i) => {
-            const threshold = isRough ? 0.6 : 0.8;
-            if (i > 0 && (displayHorses[i-1].score - h.score) >= threshold) {
-                graphHtml += `<div class="dansou-mark">⚠️ 指数断層 (${(displayHorses[i-1].score - h.score).toFixed(1)}pt差)</div>`;
+        baseList.forEach((h, i) => {
+            // 断層判定：0.8pt以上の差があれば警告（格差ロジックで出やすくなります）
+            if (i > 0 && (baseList[i-1].score - h.score) >= 0.8) {
+                graphHtml += `<div class="dansou-mark">⚠️ 指数断層 (${(baseList[i-1].score - h.score).toFixed(2)}pt差)</div>`;
             }
 
             let anaTag = "";
-            const anaThreshold = isRough ? 0.72 : 0.82;
-            if (h.odds >= 30 && h.raw >= 54) {
+            // 穴タグの厳格化
+            if (h.odds >= 40 && h.score >= (baseList[0].score * 0.9)) {
                 anaTag = '<span class="bakuan-mark">!!爆穴!!</span>';
-            } else if (h.odds >= 10 && h.ev > (displayHorses[0].ev * anaThreshold)) {
+            } else if (h.odds >= 10 && h.ev > (baseList[0].ev * 0.95)) {
                 anaTag = '<span class="ana-mark">穴</span>';
             }
 
