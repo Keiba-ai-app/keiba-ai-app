@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI競馬分析 V13.5 Adaptive</title>
+    <title>AI競馬分析 V13.6 Adaptive Engine</title>
     <style>
         :root {
             --bg-main: #020617; --bg-card: #1e293b; --bg-input: #0f172a;
@@ -111,55 +111,54 @@
         const course = document.getElementById('course').value;
         const surf = document.getElementById('surface').value;
         const dist = parseInt(document.getElementById('dist').value) || 1200;
-        const dir = document.getElementById('dir').value;
         const condVal = document.getElementById('cond').value;
         const condLabel = document.getElementById('cond').options[document.getElementById('cond').selectedIndex].text;
 
-        // 【新】馬場・距離による補正係数
         const isRough = (condVal === 'heavy' || condVal === 'bad');
-        const isLong = (dist >= 1600);
-        const volatilityFactor = isRough ? 1.15 : (condVal === 'soft' ? 1.05 : 1.0);
 
         const lines = rawText.split('\n').filter(l => l.trim() !== "");
-        let horses = lines.map(l => {
+        let baseList = lines.map(l => {
             const d = l.trim().split(/\s+/);
             if(d.length < 4) return null;
-
             const rScore = parseFloat(d[4]) || 0;
             const pop = parseInt(d[2]) || 10;
             const odds = parseFloat(d[3]) || 1;
             
-            // 【新】動的スコアリング
-            // 重馬場ならRawScore（実力）の重みを上げ、良馬場なら人気安定度を重視
             let baseScore = isRough ? (rScore * 1.02) : (rScore + (10 / (pop + 1)));
-            let distBonus = (isLong && pop <= 5) ? 0.5 : 0; // 長距離なら上位人気のスタミナ評価
-            
-            const score = parseFloat((baseScore + distBonus).toFixed(2));
-            // 重馬場なら期待値(EV)にボーナス（穴馬が上がりやすくなる）
-            const ev = score * Math.log2(odds + 1.2) * (isRough ? 1.1 : 1.0); 
-            
+            const score = parseFloat(baseScore.toFixed(2));
+            const ev = score * Math.log2(odds + 1.2) * (isRough ? 1.15 : 1.0); 
             return { no: d[0], name: d[1], pop: pop, odds: odds, score: score, ev: ev, raw: rScore };
-        }).filter(h => h !== null).sort((a,b) => b.score - a.score);
+        }).filter(h => h !== null);
 
-        if(horses.length < 2) return;
+        if(baseList.length < 2) return;
 
         // 軸選定
         let jiku;
-        let pool = [...horses];
-        if (modeA) pool = pool.filter(h => h.pop !== 1);
-
-        if (modeW || isRough) {
-            // 穴モードまたは重馬場：期待値(EV)重視の軸選定
-            jiku = pool.sort((a,b) => b.ev - a.ev)[0];
+        let jikuPool = [...baseList];
+        if (modeA) jikuPool = jikuPool.filter(h => h.pop !== 1);
+        
+        if (modeW) {
+            jiku = jikuPool.sort((a,b) => b.ev - a.ev)[0];
         } else {
-            // 通常・良馬場：安定度(Score)重視
-            jiku = pool.sort((a,b) => b.score - a.score)[0];
+            jiku = jikuPool.sort((a,b) => b.score - a.score)[0];
         }
 
-        const others = horses.filter(h => h.no !== jiku.no);
-        const aite5 = others.slice(0, 5);
+        // 【新】相手選定ロジック：モードによって相手の並び順を変える
+        const otherPool = baseList.filter(h => h.no !== jiku.no);
+        let aite5 = [];
 
-        document.getElementById('res-header').innerText = `${course} ${surf}${dist}m ${dir} (${condLabel})`;
+        if (modeW || isRough) {
+            // 穴モード or 重馬場：
+            // 指数上位2頭（保険） + 期待値上位3頭（爆発力）を組み合わせて相手を構成
+            const strongHorses = [...otherPool].sort((a,b) => b.score - a.score).slice(0, 2);
+            const valueHorses = otherPool.filter(h => !strongHorses.includes(h)).sort((a,b) => b.ev - a.ev).slice(0, 3);
+            aite5 = [...strongHorses, ...valueHorses];
+        } else {
+            // 通常：指数（Score）が高い順に5頭
+            aite5 = [...otherPool].sort((a,b) => b.score - a.score).slice(0, 5);
+        }
+
+        document.getElementById('res-header').innerText = `${course} ${surf}${dist}m (${condLabel})`;
         let betHtml = `【推奨軸】 ${jiku.no} (${jiku.name}) ${jiku.pop}人/${jiku.odds}倍\n\n`;
         betHtml += `【推奨相手】\n ${aite5.map(h=>h.no).join(', ')}\n\n`;
         betHtml += `【推奨買い目】\n`;
@@ -169,22 +168,22 @@
         
         document.getElementById('bet-output').innerHTML = betHtml;
 
-        const maxScore = Math.max(...horses.map(h => h.score));
+        // ランキング表示（ここは常に指数順で見やすく）
+        const displayHorses = [...baseList].sort((a,b) => b.score - a.score);
+        const maxScore = Math.max(...displayHorses.map(h => h.score));
         let graphHtml = "";
         
-        horses.forEach((h, i) => {
-            // 断層判定も馬場状態によって感度を変える
+        displayHorses.forEach((h, i) => {
             const threshold = isRough ? 0.6 : 0.8;
-            if (i > 0 && (horses[i-1].score - h.score) >= threshold) {
-                graphHtml += `<div class="dansou-mark">⚠️ 指数断層 (${(horses[i-1].score - h.score).toFixed(1)}pt差)</div>`;
+            if (i > 0 && (displayHorses[i-1].score - h.score) >= threshold) {
+                graphHtml += `<div class="dansou-mark">⚠️ 指数断層 (${(displayHorses[i-1].score - h.score).toFixed(1)}pt差)</div>`;
             }
 
             let anaTag = "";
-            // 穴馬判定に馬場状態を反映
-            const anaThreshold = isRough ? 0.75 : 0.82;
+            const anaThreshold = isRough ? 0.72 : 0.82;
             if (h.odds >= 30 && h.raw >= 54) {
                 anaTag = '<span class="bakuan-mark">!!爆穴!!</span>';
-            } else if (h.odds >= 10 && h.ev > (horses[0].ev * anaThreshold)) {
+            } else if (h.odds >= 10 && h.ev > (displayHorses[0].ev * anaThreshold)) {
                 anaTag = '<span class="ana-mark">穴</span>';
             }
 
