@@ -114,40 +114,47 @@
         const lines = raw.split('\n');
         let horses = lines.map(l => {
             const d = l.split(/\s+/);
-            const score = parseFloat(d[4]) || 0;
+            const rawScore = parseFloat(d[4]) || 0;
+            const pop = parseInt(d[2]) || 10;
             const odds = parseFloat(d[3]) || 1;
-            // 【修正】期待値計算を「指数×√オッズ」に変更。これにより高い指数かつ高オッズの馬が正しく高評価される
+            
+            // 【高度化】指数が同じでも差を出す「動的補正ロジック」
+            // 1. 基本：人気が高い（馬券圏内率が高い）ほど加点
+            // 2. 特殊：人気に対してオッズが高い（過小評価）馬にボーナス加点
+            let adj = (20 / (pop + 2)); 
+            let valBonus = (odds / pop) > 1.5 ? 0.8 : 0; 
+            const score = parseFloat((rawScore + adj + valBonus).toFixed(2));
+            
+            // 期待値(EV)は軸選定に使用
             const ev = score * Math.sqrt(odds); 
-            return { no: d[0], name: d[1], pop: parseInt(d[2]), odds: odds, score: score, ev: ev };
-        }).sort((a,b) => {
-            if(b.score !== a.score) return b.score - a.score;
-            return a.odds - b.odds;
-        });
+            return { no: d[0], name: d[1], pop: pop, odds: odds, score: score, ev: ev };
+        }).sort((a,b) => b.score - a.score);
 
         if(horses.length < 2) return;
 
-        const maxScore = Math.max(...horses.map(h => h.score));
-
-        // 【修正】軸選定ロジック
+        // 【軸の決定】
         let jiku;
         if (modeW) {
-            // 穴軸モード：指数上位10頭の中から最も「期待値(ev)」が高い馬を軸にする
-            jiku = horses.slice(0, 10).sort((a,b) => b.ev - a.ev)[0];
+            // 穴軸モード：指数上位8頭の中から、期待値(ev)が最も高い馬を軸に
+            jiku = horses.slice(0, 8).sort((a,b) => b.ev - a.ev)[0];
         } else if (modeA) {
             jiku = horses.find(h => h.pop !== 1) || horses[0];
         } else {
             jiku = horses[0];
         }
 
-        // 【修正】相手選定ロジック（穴馬を拾えるように変更）
+        // 【相手の決定】★ここが重要：バランス調整
         const others = horses.filter(h => h.no !== jiku.no);
-        let aite;
+        let aite = [];
+        
         if (modeW) {
-            // 穴軸モード時は、相手も期待値(ev)順で選ぶことで穴馬をマルチに組み込む
-            aite = others.sort((a, b) => b.ev - a.ev).slice(0, 5);
+            // 穴軸の場合：相手には「指数トップ2（本命級）」を必ず入れ、残りを「期待値上位」で固める
+            const topGuns = others.slice(0, 2);
+            const valueGuns = others.filter(h => !topGuns.includes(h)).sort((a,b) => b.ev - a.ev).slice(0, 3);
+            aite = [...topGuns, ...valueGuns].sort((a,b) => a.no - b.no);
         } else {
-            // 通常時は指数順。ただし僅差の穴馬を拾いやすくするため微調整
-            aite = others.sort((a, b) => b.score - a.score).slice(0, 5);
+            // 通常：指数上位5頭
+            aite = others.slice(0, 5);
         }
 
         // 買い目生成
@@ -158,15 +165,16 @@
         document.getElementById('bet-output').innerHTML = betHtml;
 
         // グラフと断層
+        const maxScore = Math.max(...horses.map(h => h.score));
         let graphHtml = "";
         
         horses.forEach((h, i) => {
-            if (i > 0 && (horses[i-1].score - h.score) >= 1.0) {
+            // 断層判定：補正後の指数で0.8pt以上の差があれば警告
+            if (i > 0 && (horses[i-1].score - h.score) >= 0.8) {
                 graphHtml += `<div class="dansou-mark">⚠️ 指数断層 (${(horses[i-1].score - h.score).toFixed(1)}pt差)</div>`;
             }
 
-            // 【修正】穴馬判定：オッズ10倍以上かつ指数がトップの75%以上の実力がある馬
-            const isAna = h.odds >= 10 && h.score >= (maxScore * 0.75);
+            const isAna = h.odds >= 12 && h.ev > (horses[0].ev * 0.7);
             const anaTag = isAna ? '<span class="ana-mark">!!穴!!</span>' : '';
             const isJiku = h.no === jiku.no ? '<span class="jiku-label">軸</span>' : '';
 
@@ -174,7 +182,7 @@
                 <div class="bar-row">
                     <div class="bar-info">
                         <span>${isJiku}${i+1}. ${h.no} ${h.name} <small>${h.odds}倍</small>${anaTag}</span>
-                        <span>${h.score}pt</span>
+                        <span>${h.score.toFixed(1)}pt</span>
                     </div>
                     <div class="bar-bg">
                         <div class="bar-fill ${isAna ? 'ana' : ''}" style="width:${(h.score/maxScore*100)}%"></div>
