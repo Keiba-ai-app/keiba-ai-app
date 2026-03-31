@@ -2,57 +2,131 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>AI競馬分析 V49.0 Precision Core</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI競馬分析 V50.0 Full Package</title>
     <style>
-        :root { --bg: #0f172a; --text: #f8fafc; --accent: #3b82f6; }
-        body { background: var(--bg); color: var(--text); font-family: sans-serif; padding: 10px; }
-        textarea { width: 100%; height: 150px; background: #1e293b; color: #fff; border: 1px solid #334155; }
-        .exec-btn { width: 100%; padding: 15px; background: var(--accent); color: white; border: none; font-weight: bold; margin-top: 10px; cursor: pointer; }
-        #output { margin-top: 20px; white-space: pre-wrap; font-family: monospace; }
+        :root {
+            --bg-main: #020617; --bg-card: #1e293b; --bg-input: #0f172a;
+            --text: #f1f5f9; --muted: #94a3b8; --accent: #3b82f6;
+            --warn: #f59e0b; --danger: #ef4444; --success: #10b981; --border: #334155;
+        }
+        body { background: var(--bg-main); color: var(--text); font-family: sans-serif; margin: 0; padding: 15px; }
+        .container { max-width: 600px; margin: auto; }
+        .panel { background: var(--bg-card); padding: 20px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px; }
+        .section-title { font-size: 12px; font-weight: bold; color: var(--warn); margin-bottom: 10px; }
+        .grid-3 { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        select, input, textarea { width: 100%; padding: 12px; background: var(--bg-input); color: #fff; border: 1px solid var(--border); border-radius: 6px; }
+        textarea { height: 200px; font-family: monospace; }
+        .exec-btn { width: 100%; padding: 20px; background: #2563eb; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 18px; cursor: pointer; }
+        .card { background: var(--bg-card); padding: 15px; border-radius: 8px; border-left: 5px solid var(--accent); margin-bottom: 15px; }
+        #output { white-space: pre-wrap; font-family: monospace; font-size: 14px; color: #e2e8f0; }
     </style>
 </head>
 <body>
-    <textarea id="raw" placeholder="馬番 名前 人気 オッズ 指数"></textarea>
-    <button class="exec-btn" onclick="run()">分析開始</button>
-    <div id="output"></div>
+
+<div class="container">
+    <div class="panel">
+        <div class="section-title">RACE SETTINGS</div>
+        <div class="grid-3">
+            <select id="course">
+                <optgroup label="JRA">
+                    <option>東京</option><option>中山</option><option>中京</option><option>京都</option><option>阪神</option>
+                    <option>札幌</option><option>函館</option><option>福島</option><option>新潟</option><option>小倉</option>
+                </optgroup>
+                <optgroup label="NAR">
+                    <option>園田</option><option>船橋</option><option>大井</option><option>川崎</option><option>浦和</option>
+                    <option>高知</option><option>佐賀</option><option>門別</option><option>盛岡</option><option>水沢</option>
+                    <option>金沢</option><option>笠松</option><option>名古屋</option><option>姫路</option><option>帯広</option>
+                </optgroup>
+            </select>
+            <select id="surface"><option>ダート</option><option>芝</option></select>
+            <input type="number" id="dist" value="1200">
+        </div>
+        <div class="grid-2">
+            <select id="dir"><option>左回り</option><option>右回り</option></select>
+            <select id="cond">
+                <option value="good">良</option><option value="soft">稍重</option>
+                <option value="heavy">重</option><option value="bad">不良</option>
+            </select>
+        </div>
+
+        <textarea id="raw" placeholder="馬番 名前 人気 オッズ 指数
+(例: 12 キラキラリ 7 20.0 55.0)"></textarea>
+        <button class="exec-btn" onclick="analyze()">🚀 究極フル分析・実行</button>
+    </div>
+
+    <div id="res-area" class="card" style="display:none;">
+        <div id="output"></div>
+    </div>
+</div>
 
 <script>
-function run() {
-    const raw = document.getElementById('raw').value.trim();
-    if(!raw) return;
-    
-    const lines = raw.split('\n');
-    let hList = lines.map(line => {
-        const parts = line.split(/\s+/);
-        // 数字のみ抽出
-        const nums = line.match(/\d+(\.\d+)?/g).map(Number);
-        if(nums.length < 3) return null;
+    function analyze() {
+        const raw = document.getElementById('raw').value.trim();
+        const out = document.getElementById('output');
+        const resArea = document.getElementById('res-area');
         
-        return { 
-            no: nums[0], 
-            pop: nums[1], 
-            odds: nums[2], 
-            score: nums[3] || 50 
-        };
-    }).filter(h => h);
+        if (!raw) { alert("データを入力してください"); return; }
+        
+        try {
+            const lines = raw.split('\n');
+            let horses = [];
+            
+            for (let line of lines) {
+                const parts = line.replace(/[　\t,()（）]/g, ' ').split(/\s+/).filter(p => p.length > 0);
+                if (parts.length < 5) continue;
+                
+                // 数値抽出（馬番, 人気, オッズ, 指数）
+                const no = parts[0];
+                const name = parts[1];
+                const pop = parseInt(parts[2]);
+                const odds = parseFloat(parts[3]);
+                const score = parseFloat(parts[4]);
+                
+                if (!isNaN(pop) && !isNaN(odds) && !isNaN(score)) {
+                    horses.push({ no, name, pop, odds, score });
+                }
+            }
 
-    // 【通常モード】指数とオッズのバランスで軸決定
-    hList.sort((a,b) => b.score - a.score);
-    let jiku = hList[0];
-    
-    // 1番人気が強い場合、オッズが3倍以下なら軸を1番人気に修正するガード
-    let fav = hList.sort((a,b) => a.pop - b.pop)[0];
-    if(fav.odds < 3.0) jiku = fav;
+            if (horses.length < 3) { alert("データが足りません"); return; }
 
-    // 相手選定：指数上位4頭
-    let aite = hList.filter(h => h.no != jiku.no).slice(0, 4);
+            // 指数と人気を統合した総合評価スコア計算
+            horses.forEach(h => {
+                h.total = h.score + (20 / (h.pop + 1)) + (h.odds > 10 ? 2 : 0);
+            });
 
-    let out = `【推奨軸】 ${jiku.no}番 (${jiku.pop}人 / ${jiku.odds}倍)\n`;
-    out += `【3連単マルチ(36点)】\n${jiku.no} ↔ ${aite.map(h=>h.no).join(', ')}\n\n`;
-    out += `【ランキング】\n` + hList.map((h,i) => `${i+1}位: ${h.no}番 (${h.score}pt)`).join('\n');
-    
-    document.getElementById('output').innerText = out;
-}
+            // ソート
+            horses.sort((a, b) => b.total - a.total);
+
+            // 軸選定：1番人気が3.0倍以下なら固定、それ以外は総合評価1位
+            let fav = [...horses].sort((a, b) => a.pop - b.pop)[0];
+            let jiku = (fav.odds < 3.0) ? fav : horses[0];
+
+            // 相手選定：実力上位＋穴要素
+            let others = horses.filter(h => h.no !== jiku.no);
+            let aite = others.sort((a, b) => b.total - a.total).slice(0, 5);
+
+            // 出力作成
+            let res = `【推奨軸馬】 ${jiku.no}番 ${jiku.name}\n`;
+            res += `----------------------------\n`;
+            res += `【3連単フォーメーション】\n`;
+            res += `1着: ${jiku.no}\n`;
+            res += `2着: ${aite.slice(0,2).map(h=>h.no).join(', ')}\n`;
+            res += `3着: ${aite.map(h=>h.no).join(', ')}\n\n`;
+            res += `【3連単マルチ(60点)】\n`;
+            res += `${jiku.no} ↔ ${aite.map(h=>h.no).join(', ')}\n\n`;
+            res += `【指数ランキング】\n`;
+            horses.forEach((h, i) => {
+                res += `${i+1}位: ${h.no}番 ${h.name} (${h.total.toFixed(1)}pt)\n`;
+            });
+
+            out.innerText = res;
+            resArea.style.display = 'block';
+        } catch(e) {
+            alert("エラー: " + e.message);
+        }
+    }
 </script>
 </body>
 </html>
