@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI競馬分析 V44.0 Straight Hybrid</title>
+    <title>AI競馬分析 V44.0 Straight Hybrid [DEBUG]</title>  <!-- タイトル変更：デバッグモードであることを明示 -->
     <style>
         :root {
             --bg-main: #020617; --bg-card: #1e293b; --bg-input: #0f172a;
@@ -108,7 +108,7 @@
             document.getElementById('btnW').classList.toggle('active');
             if(modeW) { modeA = false; document.getElementById('btnA').classList.remove('active'); }
         }
-        console.log("toggle() called. modeA:", modeA, "modeW:", modeW); // デバッグ用ログ
+        console.log("toggle() called. modeA:", modeA, "modeW:", modeW);
         console.log("btnA.classList:", document.getElementById('btnA').classList);
         console.log("btnW.classList:", document.getElementById('btnW').classList);
     }
@@ -176,12 +176,12 @@
                     let favoriteBonus = 0;
 
                     if (pop === 1) {
-                        favoriteBonus = (odds <= 3.0) ? -0.1 * rScore : 0; // 1番人気の場合、スコアを減点 (調整)
+                        favoriteBonus = (odds <= 3.0) ? -0.1 * rScore : 0;
                     } else if (pop >= 2 && pop <= 3) {
-                        favoriteBonus = 0.05 * rScore; // 2,3番人気に少しボーナス
+                        favoriteBonus = 0.05 * rScore;
                     }
                     if (pop >= 4 && pop <= 7 && odds >= 5.0 && odds <= 15.0) {
-                        favoriteBonus += rScore * 0.1;  // 穴軸候補の場合、スコアを加点 (調整)
+                        favoriteBonus += rScore * 0.1;
                     }
 
                     let jikuScore = baseScore + favoriteBonus;
@@ -190,6 +190,9 @@
                     let ev = baseScore * Math.pow(odds, 0.45) * (isRough ? 1.25 : 1.0);
 
                     hList.push({ no, name, pop, odds, score: baseScore, jikuScore, ev, raw: rScore });
+
+                    // ★★★ デバッグ：各馬のスコア算出直後に出力 ★★★
+                    console.log(`馬番${no}: pop=${pop}, odds=${odds}, rScore=${rScore}, baseScore=${baseScore}, jikuScore=${jikuScore}, ev=${ev}`);
                 }
 
                 if(hList.length < 4) {
@@ -205,64 +208,45 @@
 
                 let jiku;
                 if (modeW) {
-                    // 穴軸モード: EVと指数スコアを考慮 (調整)
                     jiku = [...pool].sort((a,b) => (b.ev * 0.6 + b.score * 0.4) - (a.ev * 0.6 + a.score * 0.4))[0];
                 } else {
                     jiku = [...pool].sort((a,b) => b.jikuScore - a.jikuScore)[0];
                 }
 
+                // ★★★ デバッグ：軸馬決定後に出力 ★★★
+                console.log("軸馬選定ロジック：", modeW ? "穴軸モード" : "標準モード");
+                console.log("軸馬候補pool：", pool);
+                console.log("最終的な軸馬jiku：", jiku);
+
                 // --- 【エアポケット撤廃】ストレート・スロット選定 ---
                 const others = hList.filter(h => h.no !== jiku.no);
 
-                let coreCount = modeW ? 2 : 3; // 通常は実力馬を上から素直に3頭拾う
-                let valueCount = modeW ? 3 : 2; // 残りから一発ある馬を2頭拾う
+                let coreCount = modeW ? 2 : 3;
+                let valueCount = modeW ? 3 : 2;
 
-                // 1. 本線枠（指数スコア上位から素直に確保：ここで1番などを絶対に逃さない）
                 let coreAite = [...others].sort((a,b) => b.score - a.score).slice(0, coreCount);
-
-                // 2. 特注枠（残った馬の中から期待値最大の馬：大穴などを確保）
-                let valueAite = others.filter(h => !coreAite.some(c => c.no === h.no))
-                                      .sort((a,b) => b.ev - a.ev).slice(0, valueCount);
-
-
-                // 3. ヒモ抜け防止枠
-                let himoAite = others.filter(h => !coreAite.some(c => c.no === h.no) && !valueAite.some(v => v.no === h.no))
-                                      .sort((a, b) => {
-                                        //  前走より斤量が軽い馬
-                                        const weightDiffA = 0; //TODO: 元データに斤量がないので、とりあえず0としておく
-                                        const weightDiffB = 0; //TODO: 元データに斤量がないので、とりあえず0としておく
-                                        const weightBonusA = weightDiffA > 0 ? 1 : 0;
-                                        const weightBonusB = weightDiffB > 0 ? 1 : 0;
-
-                                        // 外枠の馬
-                                        const outerFrameA = 0; //TODO: 元データに枠番がないので、とりあえず0としておく
-                                        const outerFrameB = 0; //TODO: 元データに枠番がないので、とりあえず0としておく
-                                        const frameBonusA = outerFrameA > 5 ? 0.5 : 0;
-                                        const frameBonusB = outerFrameB > 5 ? 0.5 : 0;
-
-                                        return (weightBonusB + frameBonusB) - (weightBonusA + frameBonusA);
-                                      }).slice(0, 2);
+                let valueAite = others.filter(h => !coreAite.some(c => c.no === h.no)).sort((a,b) => b.ev - a.ev).slice(0, valueCount);
+                let himoAite = others.filter(h => !coreAite.some(c => c.no === h.no) && !valueAite.some(v => v.no === h.no)).sort((a, b) => {
+                    const weightDiffA = 0;
+                    const weightDiffB = 0;
+                    const weightBonusA = weightDiffA > 0 ? 1 : 0;
+                    const weightBonusB = weightDiffB > 0 ? 1 : 0;
+                    const outerFrameA = 0;
+                    const outerFrameB = 0;
+                    const frameBonusA = outerFrameA > 5 ? 0.5 : 0;
+                    const frameBonusB = outerFrameB > 5 ? 0.5 : 0;
+                    return (weightBonusB + frameBonusB) - (weightBonusA + frameBonusA);
+                }).slice(0, 2);
 
                 let aite5 = [...coreAite, ...valueAite];
-                let aite7 = [...coreAite, ...valueAite, ...himoAite]; //ヒモ抜け防止枠を追加
+                let aite7 = [...coreAite, ...valueAite, ...himoAite];
                 const aite4 = aite5.slice(0, 4);
 
-                // 安全な参照（エラー防止）
                 const solidAite = coreAite[0] || {no: '-'};
                 const solidAite2 = coreAite[1] || valueAite[0] || {no: '-'};
                 const holeAite = valueAite[0] || {no: '-'};
 
-                // デバッグ用: 各変数の値をコンソールに出力
-                console.log("selCourse:", selCourse);
-                console.log("selSurf:", selSurf);
-                console.log("selCond:", selCond);
-                console.log("isRough:", isRough);
-                console.log("distValStr:", distValStr);
-                console.log("isLong:", isLong);
-                console.log("hList:", hList);
-                console.log("modeA:", modeA);
-                console.log("modeW:", modeW);
-                console.log("jiku:", jiku);
+                // ★★★ デバッグ：最終的な買い目関連情報を出力 ★★★
                 console.log("coreAite:", coreAite);
                 console.log("valueAite:", valueAite);
                 console.log("himoAite:", himoAite);
@@ -272,27 +256,22 @@
                 document.getElementById('res-header').innerText = `${selCourse} ${distValStr}m (${condLabel}) / ${hList.length}頭立て / ${modeW ? '穴狙い攻撃陣形' : '標準安定陣形'}`;
 
                 let betHtml = `【推奨軸】 ${jiku.no} (${jiku.name}) ${jiku.pop}人/${jiku.odds}倍\n\n`;
-
                 betHtml += `【💸 資金極少！超厳選買い目】\n`;
                 betHtml += ` 🎯 3連単(1点): ${jiku.no} → ${solidAite.no} → ${solidAite2.no}\n`;
                 betHtml += ` 💥 3連単(2点): ${jiku.no} → ${solidAite.no} ↔ ${holeAite.no}\n`;
                 betHtml += ` 💰 馬単/馬連(1点): ${jiku.no} ↔ ${solidAite.no}\n\n`;
-
                 betHtml += `【3連複フォーメーション】\n`;
                 betHtml += ` 1頭目: ${jiku.no}\n`;
                 betHtml += ` 2頭目: ${coreAite.map(h=>h.no).join(', ')}\n`;
-                betHtml += ` 3頭目: ${aite7.map(h=>h.no).join(', ')}\n\n`; //ヒモ抜け防止枠を追加
-
+                betHtml += ` 3頭目: ${aite7.map(h=>h.no).join(', ')}\n\n`;
                 betHtml += `【3連単フォーメーション】\n`;
                 betHtml += ` 1着: ${jiku.no}\n`;
                 betHtml += ` 2着: ${coreAite.map(h=>h.no).join(', ')}\n`;
-                betHtml += ` 3着: ${aite7.map(h=>h.no).join(', ')}\n\n`; //ヒモ抜け防止枠を追加
-
+                betHtml += ` 3着: ${aite7.map(h=>h.no).join(', ')}\n\n`;
                 betHtml += `【推奨3連単マルチ】\n`;
                 betHtml += ` 🔥 36点(相手4頭): ${jiku.no} ↔ ${aite4.map(h=>h.no).join(', ')}\n`;
                 betHtml += ` 🎯 60点(相手5頭): ${jiku.no} ↔ ${aite5.map(h=>h.no).join(', ')}\n\n`;
-
-                betHtml += `【馬連・ワイド流し】\n 軸: ${jiku.no} ↔ 相手: ${aite7.map(h=>h.no).join(', ')}`;//ヒモ抜け防止枠を追加
+                betHtml += `【馬連・ワイド流し】\n 軸: ${jiku.no} ↔ 相手: ${aite7.map(h=>h.no).join(', ')}`;
 
                 document.getElementById('bet-output').innerHTML = betHtml;
 
@@ -306,13 +285,10 @@
                     const diff = i > 0 ? (hList[i-1].score - h.score).toFixed(2) : 0;
                     if (i > 0 && diff > 0.8) {
                         graphHtml += `<div class="dansou-mark">⚠️ 指数断層 (${diff}pt差)</div>`;
-
-                        // 断層上の馬を強調表示
-                        if (diff >= 2.0 && lastDiff < 2.0) {  // 2pt以上の断層
+                        if (diff >= 2.0 && lastDiff < 2.0) {
                            graphHtml = graphHtml.replace(/<\/span><\/div><\/div>$/, ' <span class="bias-mark">断層上</span></span></div></div>');
                         }
                     }
-
                     lastDiff = parseFloat(diff);
 
                     let tag = "";
