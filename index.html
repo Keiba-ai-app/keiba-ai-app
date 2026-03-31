@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI競馬分析 V38.0 Variable Engine</title>
+    <title>AI競馬分析 V39.0 Sniper & Bomber</title>
     <style>
         :root {
             --bg-main: #020617; --bg-card: #1e293b; --bg-input: #0f172a;
@@ -53,13 +53,13 @@
             <select id="surface">
                 <option>ダート</option><option>芝</option>
             </select>
-            <input type="number" id="dist" placeholder="距離(m)" value="1200">
+            <input type="number" id="dist" placeholder="距離(m)" value="1500">
         </div>
         <div class="grid-2">
             <select id="dir"><option>右回り</option><option>左回り</option></select>
             <select id="cond">
                 <option value="good">良</option><option value="soft">稍重</option>
-                <option value="heavy">重</option><option value="bad">不良</option>
+                <option value="heavy" selected>重</option><option value="bad">不良</option>
             </select>
         </div>
 
@@ -70,7 +70,7 @@
         </div>
 
         <textarea id="raw" placeholder="馬番 名前 人気 オッズ 指数 を貼り付け"></textarea>
-        <button id="execBtn" class="exec-btn" onclick="run()">🚀 動的分析・買い目生成</button>
+        <button id="execBtn" class="exec-btn" onclick="run()">🚀 スナイパー分析・買い目生成</button>
     </div>
 
     <div id="res-area" style="display:none;">
@@ -80,7 +80,7 @@
             <div id="bet-output" style="white-space: pre-wrap; font-family: monospace; font-size: 13px;"></div>
         </div>
         <div class="card" style="border-left-color: #ff00ff;">
-            <div class="section-title" style="color:#ff00ff">【高精度ランキング / 断層分析】</div>
+            <div class="section-title" style="color:#ff00ff">【高精度能力ランキング / 断層分析】</div>
             <div id="graph-output"></div>
         </div>
     </div>
@@ -114,9 +114,7 @@
                 const lines = rawInput.split('\n').filter(l => l.trim().length > 3);
                 const isRough = (document.getElementById('cond').value === 'heavy' || document.getElementById('cond').value === 'bad');
                 const distVal = parseInt(document.getElementById('dist').value) || 1200;
-                
-                // 距離が長いほど波乱（スタミナ勝負）が起きやすいと判定
-                const isLong = distVal >= 1600;
+                const isLong = distVal >= 1500;
 
                 let hList =[];
 
@@ -127,30 +125,33 @@
 
                     const parts = normalized.split(/\s+/);
                     const no = nums[0];
-                    const pop = parseInt(nums[1]);
-                    const odds = parseFloat(nums[2]);
-                    const rScore = nums[3] ? parseFloat(nums[3]) : 55.0;
                     const name = parts[1] || "馬" + no;
-
-                    // 1番人気の鉄板ガード
-                    let favoriteBonus = (pop === 1 && odds < 3.5 && !modeW) ? 100 : 0;
-                    let popFactor = (25 / (pop + 1.2));
+                    const numVals = nums.map(v => parseFloat(v));
                     
-                    // 【新機能】距離とオッズの連動ボーナス（長距離の伏兵を拾う）
+                    const pop = numVals.find(n => n >= 1 && n <= 22) || 10;
+                    const odds = numVals.find(n => n > 1.0 && n < 1000 && n !== pop) || 10.0;
+                    const rScore = numVals.find(n => n >= 30 && n <= 95) || 55.0;
+
+                    // 【断層正常化＆能力評価】
+                    let popFactor = (25 / (pop + 1.2));
                     let distBonus = (isLong && odds >= 15.0) ? 0.8 : 0;
+                    
+                    // baseScore は純粋な能力＋適性（ランキングと断層に使用）
+                    let baseScore = parseFloat((rScore + popFactor + distBonus).toFixed(3));
+                    
+                    // jikuScore は内部の軸決定用（圧倒的人気馬を逃さないため）
+                    let favoriteBonus = (pop === 1 && odds < 3.5 && !modeW) ? 100 : 0;
+                    let jikuScore = baseScore + favoriteBonus;
 
-                    const score = parseFloat((rScore + popFactor + favoriteBonus + distBonus).toFixed(3));
-                    // 馬場状態を期待値に乗算
-                    const ev = (rScore + popFactor) * Math.log10(odds + 2.0) * (isRough ? 1.25 : 1.0);
+                    // 【大穴抽出EVロジック改善】オッズの影響力を強め、1番のような超大穴を確実にあぶり出す
+                    let ev = baseScore * Math.pow(odds, 0.45) * (isRough ? 1.25 : 1.0);
 
-                    hList.push({ no, name, pop, odds, score, ev, raw: rScore });
+                    hList.push({ no, name, pop, odds, score: baseScore, jikuScore, ev, raw: rScore });
                 });
 
                 if(hList.length < 4) throw new Error("データが足りません");
 
-                hList.sort((a,b) => b.score - a.score);
-
-                // --- 軸馬の選定 ---
+                // --- 軸馬の選定（内部用 jikuScore を使用） ---
                 let jiku;
                 let pool =[...hList];
                 if (modeA) pool = pool.filter(h => h.pop !== 1);
@@ -158,24 +159,23 @@
                 if (modeW) {
                     jiku = [...pool].sort((a,b) => b.ev - a.ev)[0];
                 } else {
-                    jiku = pool[0];
+                    jiku = [...pool].sort((a,b) => b.jikuScore - a.jikuScore)[0];
                 }
 
-                // --- 【新】モード連動・変動型スロット ---
+                // --- 【新】スロット選定 ---
                 const others = hList.filter(h => h.no !== jiku.no);
                 
-                // モードに応じて、実力枠と大穴枠の枚数を動的に変える
-                let coreCount = modeW ? 1 : 2;   // 穴軸時は実力相手を減らす
-                let valueCount = modeW ? 2 : 1;  // 穴軸時は大穴相手を増やす
+                let coreCount = modeW ? 1 : 2;
+                let valueCount = modeW ? 2 : 1;
                 
                 // 1. 鉄板枠（指数上位）
                 let coreAite = [...others].sort((a,b) => b.score - a.score).slice(0, coreCount);
                 
-                // 2. 中穴枠（オッズ8倍〜40倍のゾーンから指数上位を2頭）
-                let middleCandidates = others.filter(h => !coreAite.some(c => c.no === h.no) && h.odds >= 8.0 && h.odds <= 40.0);
+                // 2. 中穴枠（オッズ8倍〜45倍のゾーン）
+                let middleCandidates = others.filter(h => !coreAite.some(c => c.no === h.no) && h.odds >= 8.0 && h.odds <= 45.0);
                 let middleAite = middleCandidates.sort((a,b) => b.score - a.score).slice(0, 2);
 
-                // 3. 爆撃枠（残りから期待値EVが最大の馬）
+                // 3. 爆撃枠（残りからEVが最大の馬。ここで大穴の1番が拾われる）
                 let remaining = others.filter(h => !coreAite.some(c => c.no === h.no) && !middleAite.some(m => m.no === h.no));
                 let valueAite = remaining.sort((a,b) => b.ev - a.ev).slice(0, valueCount);
 
@@ -188,6 +188,11 @@
                 let aite5 =[...coreAite, ...middleAite, ...valueAite].filter(h => h !== undefined).slice(0,5);
                 const aite4 = aite5.slice(0, 4);
 
+                // --- 【新搭載】資金極少・超厳選 買い目 ---
+                const solidAite = coreAite[0]; // 実力最上位
+                const solidAite2 = coreAite[1] || middleAite[0]; // 実力2番手
+                const holeAite = valueAite[0] || middleAite[0]; // 爆発力トップ
+
                 // 出力
                 const course = document.getElementById('course').value;
                 const dist = document.getElementById('dist').value || "---";
@@ -196,6 +201,10 @@
                 
                 let betHtml = `【推奨軸】 ${jiku.no} (${jiku.name}) ${jiku.pop}人/${jiku.odds}倍\n\n`;
                 
+                betHtml += `【💸 資金極少！超厳選 3連単】\n`;
+                betHtml += ` 🎯 1点勝負: ${jiku.no} → ${solidAite.no} → ${solidAite2.no}\n`;
+                betHtml += ` 💥 一撃2点: ${jiku.no} → ${solidAite.no} ↔ ${holeAite.no}\n\n`;
+
                 betHtml += `【3連複フォーメーション】\n`;
                 betHtml += ` 1頭目: ${jiku.no}\n`;
                 betHtml += ` 2頭目: ${coreAite.map(h=>h.no).join(', ')}${middleAite.length > 0 ? ', ' + middleAite[0].no : ''}\n`;
@@ -214,12 +223,13 @@
                 
                 document.getElementById('bet-output').innerHTML = betHtml;
 
-                // ランキング
+                // ランキング (本来の能力値 score を使用)
+                hList.sort((a,b) => b.score - a.score);
                 const maxS = Math.max(...hList.map(h => h.score));
                 let graphHtml = "";
                 hList.forEach((h, i) => {
                     const diff = i > 0 ? (hList[i-1].score - h.score).toFixed(2) : 0;
-                    if (i > 0 && diff > 0.8 && diff < 50) graphHtml += `<div class="dansou-mark">⚠️ 指数断層 (${diff}pt差)</div>`;
+                    if (i > 0 && diff > 0.8) graphHtml += `<div class="dansou-mark">⚠️ 指数断層 (${diff}pt差)</div>`;
                     
                     let tag = "";
                     if (h.no === jiku.no) tag = "";
@@ -232,10 +242,10 @@
                 });
                 document.getElementById('graph-output').innerHTML = graphHtml;
                 document.getElementById('res-area').style.display = 'block';
-                btn.innerText = "🚀 動的分析・買い目生成";
+                btn.innerText = "🚀 スナイパー分析・買い目生成";
 
             } catch (e) {
-                btn.innerText = "🚀 動的分析・買い目生成";
+                btn.innerText = "🚀 スナイパー分析・買い目生成";
                 alert("データの解析に失敗しました。コピー内容を確認してください。");
             }
         }, 100);
