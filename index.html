@@ -1,1 +1,306 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI競馬分析 V43.0 Unbreakable Engine</title>
+    <style>
+        :root {
+            --bg-main: #020617; --bg-card: #1e293b; --bg-input: #0f172a;
+            --text: #f1f5f9; --muted: #94a3b8; --accent: #3b82f6;
+            --warn: #f59e0b; --danger: #ef4444; --success: #10b981; --border: #334155;
+        }
+        body { background: var(--bg-main); color: var(--text); font-family: sans-serif; margin: 0; padding: 10px; font-size: 14px; }
+        .container { max-width: 500px; margin: auto; }
+        .panel { background: var(--bg-card); padding: 15px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 12px; }
+        .section-title { font-size: 11px; font-weight: bold; color: var(--warn); margin-bottom: 8px; letter-spacing: 1px; }
+        
+        .grid-3 { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+        
+        select, input, textarea { width: 100%; padding: 10px; background: var(--bg-input); color: #fff; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box; }
+        textarea { height: 130px; font-family: monospace; font-size: 12px; margin-top: 5px; }
 
+        .btn-group { display: flex; gap: 5px; margin-bottom: 10px; }
+        .tgl { flex: 1; padding: 10px; background: var(--border); border: none; border-radius: 6px; color: var(--muted); font-weight: bold; cursor: pointer; font-size: 12px; }
+        .tgl.active { background: var(--accent); color: white; border: 1px solid #fff; }
+
+        .exec-btn { width: 100%; padding: 18px; background: linear-gradient(180deg, #2563eb, #1e40af); color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 18px; cursor: pointer; box-shadow: 0 4px 0 #1e3a8a; }
+        .exec-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #1e3a8a; }
+
+        .card { background: var(--bg-card); padding: 12px; border-radius: 8px; border-left: 4px solid var(--accent); margin-bottom: 10px; }
+        .dansou-mark { color: #ff00ff; font-weight: bold; font-size: 11px; margin: 8px 0; border-top: 1px dashed #ff00ff; padding-top: 4px; }
+        .ana-mark { color: #fff; background: var(--danger); padding: 2px 5px; border-radius: 3px; font-size: 10px; margin-left: 5px; font-weight: bold; }
+        .bias-mark { color: #fff; background: #3b82f6; padding: 2px 5px; border-radius: 3px; font-size: 10px; margin-left: 5px; font-weight: bold; }
+        .jiku-label { background: var(--danger); color: white; padding: 2px 4px; border-radius: 3px; font-size: 10px; margin-right: 5px; }
+
+        .bar-row { margin-bottom: 8px; }
+        .bar-info { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px; }
+        .bar-bg { width: 100%; height: 8px; background: #000; border-radius: 4px; overflow: hidden; }
+        .bar-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #60a5fa); transition: 0.4s; }
+        .bar-fill.ana { background: linear-gradient(90deg, #f59e0b, #ef4444); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="panel">
+        <div class="section-title">Race Settings (枠順・馬場連動)</div>
+        <div class="grid-3">
+            <select id="course">
+                <optgroup label="地方競馬 (NAR)">
+                    <option>船橋</option><option>園田</option><option>大井</option><option>川崎</option><option>浦和</option>
+                    <option>高知</option><option>佐賀</option><option>門別</option><option>盛岡</option><option>水沢</option>
+                    <option>金沢</option><option>笠松</option><option>名古屋</option><option>姫路</option><option>帯広</option>
+                </optgroup>
+                <optgroup label="中央競馬 (JRA)">
+                    <option>東京</option><option>中山</option><option>中京</option><option>京都</option><option>阪神</option>
+                    <option>札幌</option><option>函館</option><option>福島</option><option>新潟</option><option>小倉</option>
+                </optgroup>
+            </select>
+            <select id="surface">
+                <option>ダート</option><option>芝</option>
+            </select>
+            <input type="number" id="dist" placeholder="距離(m)" value="1500">
+        </div>
+        <div class="grid-2">
+            <select id="dir"><option>左回り</option><option>右回り</option></select>
+            <select id="cond">
+                <option value="good">良</option><option value="soft">稍重</option>
+                <option value="heavy" selected>重</option><option value="bad">不良</option>
+            </select>
+        </div>
+
+        <div class="section-title">AI Mode Selection</div>
+        <div class="btn-group">
+            <button id="btnA" class="tgl" onclick="toggle('A')">1人気消し</button>
+            <button id="btnW" class="tgl" onclick="toggle('W')">穴軸モード</button>
+        </div>
+
+        <textarea id="raw" placeholder="馬番 名前 人気 オッズ 指数 を貼り付け"></textarea>
+        <button id="execBtn" class="exec-btn" onclick="run()">🚀 超堅牢分析・買い目生成</button>
+    </div>
+
+    <div id="res-area" style="display:none;">
+        <div class="card" style="border-left-color: var(--success);">
+            <div id="res-header" style="font-weight:bold; font-size:12px; color:var(--muted); margin-bottom:5px;"></div>
+            <div class="section-title" style="color:#fff">【AI推奨：状況連動フォーメーション】</div>
+            <div id="bet-output" style="white-space: pre-wrap; font-family: monospace; font-size: 13px; line-height: 1.4;"></div>
+        </div>
+        <div class="card" style="border-left-color: #ff00ff;">
+            <div class="section-title" style="color:#ff00ff">【高精度能力ランキング / 断層分析】</div>
+            <div id="graph-output"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 競馬場ごとの枠順バイアス定義
+    const trackBias = {
+        "園田": "inner", "船橋": "inner", "川崎": "inner", "浦和": "inner", "名古屋": "inner", "笠松": "inner",
+        "阪神": "inner", "京都": "inner", "中京": "inner", "札幌": "inner", "函館": "inner", "福島": "inner", "小倉": "inner",
+        "大井": "outer", "門別": "outer", "盛岡": "outer", "新潟": "outer", "東京": "outer", "中山": "outer"
+    };
+
+    let modeA = false, modeW = false;
+
+    function toggle(m) {
+        if(m==='A') {
+            modeA = !modeA;
+            document.getElementById('btnA').classList.toggle('active');
+            if(modeA) { modeW = false; document.getElementById('btnW').classList.remove('active'); }
+        }
+        if(m==='W') {
+            modeW = !modeW;
+            document.getElementById('btnW').classList.toggle('active');
+            if(modeW) { modeA = false; document.getElementById('btnA').classList.remove('active'); }
+        }
+    }
+
+    function run() {
+        const rawInput = document.getElementById('raw').value.trim();
+        if(!rawInput) { 
+            alert("データを入力してください"); 
+            return; 
+        }
+        
+        try {
+            const course = document.getElementById('course').value;
+            const surf = document.getElementById('surface').value;
+            const isRough = (document.getElementById('cond').value === 'heavy' || document.getElementById('cond').value === 'bad');
+            const distVal = parseInt(document.getElementById('dist').value) || 1200;
+            const isLong = distVal >= 1500;
+            const condLabel = document.getElementById('cond').options[document.getElementById('cond').selectedIndex].text;
+            const biasType = trackBias[course] || "flat";
+
+            // --- 【無敵】数字抽出エンジン ---
+            const lines = rawInput.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 2);
+            let tempData =[];
+
+            for(let line of lines) {
+                // 記号をスペースに変えてクリーンアップ
+                const clean = line.replace(/[　\t,()（）:：\-+]/g, ' ').replace(/倍|人気|人|pt|位/g, '').trim();
+                const parts = clean.split(/\s+/);
+                
+                // 行内から純粋な「数値」だけをすべて抽出
+                let numVals =[];
+                for(let p of parts) {
+                    if(/^\d+(\.\d+)?$/.test(p)) {
+                        numVals.push(parseFloat(p));
+                    }
+                }
+
+                // 数字が4つ（馬番、人気、オッズ、指数）揃っていない行はスキップ
+                if(numVals.length < 4) continue;
+
+                // 順番通りに必ず割り当てる（これで誤認バグ消滅）
+                const no = parseInt(numVals[0], 10);
+                const pop = parseInt(numVals[1], 10);
+                const odds = numVals[2];
+                const rScore = numVals[3];
+                
+                // 数値じゃない最初の文字列を馬名とする（無ければ"馬+番号"）
+                const name = parts.find(p => !/^\d+(\.\d+)?$/.test(p)) || ("馬" + no);
+
+                tempData.push({ no, name, pop, odds, raw: rScore });
+            }
+
+            if(tempData.length < 3) {
+                throw new Error("解析可能な馬データが足りません。\nコピーしたテキストに「馬番・人気・オッズ・指数」が含まれているか確認してください。");
+            }
+
+            const totalHorses = tempData.length;
+            let hList =[];
+
+            // スコアリングと枠順・距離ボーナスの適用
+            tempData.forEach(h => {
+                let frameBonus = 0;
+                let isFavoredFrame = false;
+
+                if (biasType === "inner" && h.no <= Math.ceil(totalHorses / 3)) {
+                    frameBonus = 1.0;
+                    isFavoredFrame = true;
+                } else if (biasType === "outer" && h.no >= Math.floor(totalHorses * 2 / 3)) {
+                    frameBonus = 1.0;
+                    isFavoredFrame = true;
+                }
+
+                let popFactor = (25 / (h.pop + 1.2));
+                let distBonus = (isLong && h.odds >= 15.0) ? 0.8 : 0;
+                
+                let baseScore = parseFloat((h.raw + popFactor + distBonus + frameBonus).toFixed(3));
+                
+                // 【圧倒的本命馬の鉄板ガード】
+                let favoriteBonus = (h.pop === 1 && h.odds < 3.5 && !modeW) ? 100 : 0;
+                let jikuScore = baseScore + favoriteBonus;
+
+                // 期待値(EV)計算
+                let ev = baseScore * Math.pow(h.odds, 0.45) * (isRough ? 1.25 : 1.0);
+
+                hList.push({ ...h, score: baseScore, jikuScore, ev, isFavoredFrame });
+            });
+
+            // --- 軸馬の選定 ---
+            let pool = [...hList];
+            if (modeA) {
+                pool = pool.filter(h => h.pop !== 1);
+                if(pool.length === 0) pool = [...hList];
+            }
+
+            let jiku;
+            if (modeW) {
+                jiku = [...pool].sort((a,b) => b.ev - a.ev)[0];
+            } else {
+                jiku =[...pool].sort((a,b) => b.jikuScore - a.jikuScore)[0];
+            }
+
+            // --- スロット選定：実力馬と穴馬を確実にミックス ---
+            const others = hList.filter(h => h.no !== jiku.no);
+            
+            let coreCount = modeW ? 1 : 2;
+            let valueCount = modeW ? 2 : 1;
+            
+            // 1. 実力枠（指数上位から）
+            let coreAite =[...others].sort((a,b) => b.score - a.score).slice(0, coreCount);
+            
+            // 2. 中穴枠（オッズ8倍〜45倍のゾーン）
+            let middleCandidates = others.filter(h => !coreAite.some(c => c.no === h.no) && h.odds >= 8.0 && h.odds <= 45.0);
+            let middleAite = middleCandidates.sort((a,b) => b.score - a.score).slice(0, 2);
+
+            // 3. 爆撃枠（残りからEV最大の馬）
+            let remaining = others.filter(h => !coreAite.some(c => c.no === h.no) && !middleAite.some(m => m.no === h.no));
+            let valueAite = remaining.sort((a,b) => b.ev - a.ev).slice(0, valueCount);
+
+            while(middleAite.length < 2 && remaining.length > 0) {
+                remaining.sort((a,b) => b.score - a.score);
+                middleAite.push(remaining.shift());
+            }
+
+            let aite5 =[...coreAite, ...middleAite, ...valueAite].slice(0, 5);
+            const aite4 = aite5.slice(0, 4);
+
+            const solidAite = coreAite[0] || middleAite[0] || {no: '-'}; 
+            const solidAite2 = coreAite[1] || middleAite[1] || valueAite[0] || {no: '-'}; 
+            const holeAite = valueAite[0] || middleAite[0] || {no: '-'}; 
+
+            // --- 買い目の出力 ---
+            document.getElementById('res-header').innerText = `${course} ${dist}m (${condLabel}) / ${totalHorses}頭立て / ${modeW ? '穴狙い攻撃陣形' : '標準安定陣形'}`;
+            
+            let betHtml = `【推奨軸】 ${jiku.no} (${jiku.name}) ${jiku.pop}人/${jiku.odds}倍\n\n`;
+            
+            betHtml += `【💸 資金極少！超厳選買い目】\n`;
+            betHtml += ` 🎯 3連単(1点): ${jiku.no} → ${solidAite.no} → ${solidAite2.no}\n`;
+            betHtml += ` 💥 3連単(2点): ${jiku.no} → ${solidAite.no} ↔ ${holeAite.no}\n`;
+            betHtml += ` 💰 馬単/馬連(1点): ${jiku.no} ↔ ${solidAite.no}\n\n`;
+
+            betHtml += `【3連複フォーメーション】\n`;
+            betHtml += ` 1頭目: ${jiku.no}\n`;
+            betHtml += ` 2頭目: ${coreAite.map(h=>h.no).join(', ')}${middleAite.length > 0 ? ', ' + middleAite[0].no : ''}\n`;
+            betHtml += ` 3頭目: ${aite5.map(h=>h.no).join(', ')}\n\n`;
+
+            betHtml += `【3連単フォーメーション】\n`;
+            betHtml += ` 1着: ${jiku.no}\n`;
+            betHtml += ` 2着: ${coreAite.map(h=>h.no).join(', ')}\n`;
+            betHtml += ` 3着: ${aite5.map(h=>h.no).join(', ')}\n\n`;
+
+            betHtml += `【推奨3連単マルチ】\n`;
+            betHtml += ` 🔥 36点(相手4頭): ${jiku.no} ↔ ${aite4.map(h=>h.no).join(', ')}\n`;
+            betHtml += ` 🎯 60点(相手5頭): ${jiku.no} ↔ ${aite5.map(h=>h.no).join(', ')}\n\n`;
+            
+            betHtml += `【馬連・ワイド流し】\n 軸: ${jiku.no} ↔ 相手: ${aite5.map(h=>h.no).join(', ')}`;
+            
+            document.getElementById('bet-output').innerHTML = betHtml;
+
+            // --- グラフ出力 ---
+            hList.sort((a,b) => b.score - a.score);
+            const maxS = Math.max(...hList.map(h => h.score));
+            let graphHtml = "";
+            hList.forEach((h, i) => {
+                const diff = i > 0 ? (hList[i-1].score - h.score).toFixed(2) : 0;
+                if (i > 0 && diff > 0.8) graphHtml += `<div class="dansou-mark">⚠️ 指数断層 (${diff}pt差)</div>`;
+                
+                let tag = "";
+                if (h.no === jiku.no) tag = "";
+                else if (h.odds < 4.0) tag = '<span class="ana-mark" style="background:#ef4444">本命級</span>';
+                else if (h.isFavoredFrame && h.odds >= 10.0) tag = '<span class="bias-mark">絶好枠</span>';
+                else if (middleAite.some(a => a.no === h.no)) tag = '<span class="ana-mark" style="background:#f59e0b">中穴</span>';
+                else if (valueAite.some(a => a.no === h.no)) tag = '<span class="ana-mark" style="background:#8b5cf6">大穴</span>';
+
+                const isJ = h.no === jiku.no ? '<span class="jiku-label">推奨軸</span>' : '';
+                graphHtml += `<div class="bar-row"><div class="bar-info"><span>${isJ}${i+1}. ${h.no} ${h.name} <small>${h.odds}倍</small>${tag}</span><span>${h.score.toFixed(1)}pt</span></div><div class="bar-bg"><div class="bar-fill ${h.odds < 5 ? '' : 'ana'}" style="width:${(h.score/maxS*100)}%"></div></div></div>`;
+            });
+            
+            document.getElementById('graph-output').innerHTML = graphHtml;
+            document.getElementById('res-area').style.display = 'block';
+
+        } catch(e) {
+            // エラー時も画面に理由を直接表示し、無反応を防ぐ
+            document.getElementById('res-header').innerText = "❌ 解析エラー";
+            document.getElementById('bet-output').innerHTML = `<span style="color:var(--danger); font-weight:bold;">${e.message}</span>`;
+            document.getElementById('graph-output').innerHTML = "";
+            document.getElementById('res-area').style.display = 'block';
+        }
+    }
+</script>
+</body>
+</html>
