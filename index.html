@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI競馬分析 V41.0 Unbreakable Sniper</title>
+    <title>AI競馬分析 V42.0 Track Bias Master</title>
     <style>
         :root {
             --bg-main: #020617; --bg-card: #1e293b; --bg-input: #0f172a;
@@ -31,6 +31,7 @@
         .card { background: var(--bg-card); padding: 12px; border-radius: 8px; border-left: 4px solid var(--accent); margin-bottom: 10px; }
         .dansou-mark { color: #ff00ff; font-weight: bold; font-size: 11px; margin: 8px 0; border-top: 1px dashed #ff00ff; padding-top: 4px; }
         .ana-mark { color: #fff; background: var(--danger); padding: 2px 5px; border-radius: 3px; font-size: 10px; margin-left: 5px; font-weight: bold; }
+        .bias-mark { color: #fff; background: #3b82f6; padding: 2px 5px; border-radius: 3px; font-size: 10px; margin-left: 5px; font-weight: bold; }
         .jiku-label { background: var(--danger); color: white; padding: 2px 4px; border-radius: 3px; font-size: 10px; margin-right: 5px; }
 
         .bar-row { margin-bottom: 8px; }
@@ -44,7 +45,7 @@
 
 <div class="container">
     <div class="panel">
-        <div class="section-title">Race Settings</div>
+        <div class="section-title">Race Settings (枠順・馬場連動)</div>
         <div class="grid-3">
             <select id="course">
                 <optgroup label="地方競馬 (NAR)">
@@ -77,13 +78,13 @@
         </div>
 
         <textarea id="raw" placeholder="馬番 名前 人気 オッズ 指数 を貼り付け"></textarea>
-        <button id="execBtn" class="exec-btn" onclick="run()">🚀 超高精度スナイプ・買い目生成</button>
+        <button id="execBtn" class="exec-btn" onclick="run()">🚀 コース枠順分析・買い目生成</button>
     </div>
 
     <div id="res-area" style="display:none;">
         <div class="card" style="border-left-color: var(--success);">
             <div id="res-header" style="font-weight:bold; font-size:12px; color:var(--muted); margin-bottom:5px;"></div>
-            <div class="section-title" style="color:#fff">【AI推奨：状況連動フォーメーション】</div>
+            <div class="section-title" style="color:#fff">【AI推奨：枠順補正 ＆ 状況連動フォーメーション】</div>
             <div id="bet-output" style="white-space: pre-wrap; font-family: monospace; font-size: 13px; line-height: 1.4;"></div>
         </div>
         <div class="card" style="border-left-color: #ff00ff;">
@@ -94,6 +95,13 @@
 </div>
 
 <script>
+    // 競馬場ごとの一般的な枠順バイアス定義（コース特性）
+    const trackBias = {
+        "園田": "inner", "船橋": "inner", "川崎": "inner", "浦和": "inner", "名古屋": "inner", "笠松": "inner",
+        "阪神": "inner", "京都": "inner", "中京": "inner", "札幌": "inner", "函館": "inner", "福島": "inner", "小倉": "inner",
+        "大井": "outer", "門別": "outer", "盛岡": "outer", "新潟": "outer", "東京": "outer", "中山": "outer"
+    };
+
     let modeA = false, modeW = false;
 
     function toggle(m) {
@@ -118,17 +126,20 @@
             return; 
         }
         
-        btn.innerText = "⏳ 環境連動演算中...";
+        btn.innerText = "⏳ トラックバイアス演算中...";
 
         setTimeout(() => {
             try {
-                // --- 不壊(Unbreakable)のデータパース ---
-                const lines = rawInput.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 2);
+                // UI値の取得
+                const course = document.getElementById('course').value;
+                const surf = document.getElementById('surface').value;
                 const isRough = (document.getElementById('cond').value === 'heavy' || document.getElementById('cond').value === 'bad');
                 const distVal = parseInt(document.getElementById('dist').value) || 1200;
                 const isLong = distVal >= 1500;
 
-                let hList =[];
+                // データパース
+                const lines = rawInput.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 2);
+                let tempData =[];
 
                 for(let line of lines) {
                     const clean = line.replace(/[　\t,()（）:：\-+]/g, ' ').replace(/倍|人気|人|pt|位/g, '').trim();
@@ -136,12 +147,11 @@
                     if (parts.length < 3) continue;
 
                     const noStr = parts[0];
-                    if(isNaN(parseInt(noStr))) continue; // 先頭が数字(馬番)でなければ無視
+                    if(isNaN(parseInt(noStr))) continue;
 
-                    const no = noStr;
+                    const no = parseInt(noStr); // 馬番を数値として保持（枠順計算のため）
                     const name = parts[1];
                     
-                    // 文字列の中から数値のみを抽出（順番通りに：人気、オッズ、指数）
                     let numVals =[];
                     for(let i = 2; i < parts.length; i++) {
                         const val = parseFloat(parts[i]);
@@ -154,31 +164,51 @@
                     const odds = parseFloat(numVals[1]);
                     const rScore = parseFloat(numVals[2]);
 
-                    // 【能力評価＆断層用スコア計算】
-                    let popFactor = (25 / (pop + 1.2));
-                    let distBonus = (isLong && odds >= 15.0) ? 0.8 : 0;
+                    tempData.push({ no, name, pop, odds, raw: rScore });
+                }
+
+                if(tempData.length < 3) throw new Error("有効なデータが足りません。");
+
+                const totalHorses = tempData.length; // 出走頭数
+                const biasType = trackBias[course] || "flat"; // コースごとの有利不利
+
+                let hList =[];
+
+                // 各馬のスコアに枠順バイアスを適用
+                tempData.forEach(h => {
+                    let frameBonus = 0;
+                    let isFavoredFrame = false;
+
+                    // 出走頭数に応じて内・外を判定し、加点
+                    if (biasType === "inner" && h.no <= Math.ceil(totalHorses / 3)) {
+                        frameBonus = 1.0; // 絶好の内枠
+                        isFavoredFrame = true;
+                    } else if (biasType === "outer" && h.no >= Math.floor(totalHorses * 2 / 3)) {
+                        frameBonus = 1.0; // 絶好の外枠
+                        isFavoredFrame = true;
+                    }
+
+                    let popFactor = (25 / (h.pop + 1.2));
+                    let distBonus = (isLong && h.odds >= 15.0) ? 0.8 : 0;
                     
-                    let baseScore = parseFloat((rScore + popFactor + distBonus).toFixed(3));
+                    // ベーススコアに枠順ボーナスを合算！
+                    let baseScore = parseFloat((h.raw + popFactor + distBonus + frameBonus).toFixed(3));
                     
-                    // 【内部の軸決定用スコア（本命馬を鉄板でガード）】
-                    let favoriteBonus = (pop === 1 && odds < 3.5 && !modeW) ? 100 : 0;
+                    // 内部軸用（1番人気・低オッズをガード）
+                    let favoriteBonus = (h.pop === 1 && h.odds < 3.5 && !modeW) ? 100 : 0;
                     let jikuScore = baseScore + favoriteBonus;
 
-                    // 【大穴抽出EVロジック】
-                    let ev = baseScore * Math.pow(odds, 0.45) * (isRough ? 1.25 : 1.0);
+                    // 期待値（EV）
+                    let ev = baseScore * Math.pow(h.odds, 0.45) * (isRough ? 1.25 : 1.0);
 
-                    hList.push({ no, name, pop, odds, score: baseScore, jikuScore, ev, raw: rScore });
-                }
-
-                if(hList.length < 3) {
-                    throw new Error("有効な馬データが足りません。馬番・人気・オッズ・指数の順で入力されているか確認してください。");
-                }
+                    hList.push({ ...h, score: baseScore, jikuScore, ev, isFavoredFrame });
+                });
 
                 // --- 軸馬の選定 ---
                 let pool = [...hList];
                 if (modeA) {
                     pool = pool.filter(h => h.pop !== 1);
-                    if(pool.length === 0) pool =[...hList]; // 消して0頭になったら戻す
+                    if(pool.length === 0) pool =[...hList];
                 }
 
                 let jiku;
@@ -194,7 +224,7 @@
                 let coreCount = modeW ? 1 : 2;
                 let valueCount = modeW ? 2 : 1;
                 
-                // 1. 鉄板枠（指数上位から確保）
+                // 1. 鉄板枠（指数上位）
                 let coreAite = [...others].sort((a,b) => b.score - a.score).slice(0, coreCount);
                 
                 // 2. 中穴枠（オッズ8倍〜45倍のゾーン）
@@ -205,7 +235,6 @@
                 let remaining = others.filter(h => !coreAite.some(c => c.no === h.no) && !middleAite.some(m => m.no === h.no));
                 let valueAite = remaining.sort((a,b) => b.ev - a.ev).slice(0, valueCount);
 
-                // 中穴が足りない場合の補充
                 while(middleAite.length < 2 && remaining.length > 0) {
                     remaining.sort((a,b) => b.score - a.score);
                     middleAite.push(remaining.shift());
@@ -214,16 +243,13 @@
                 let aite5 =[...coreAite, ...middleAite, ...valueAite].slice(0, 5);
                 const aite4 = aite5.slice(0, 4);
 
-                // 安全な参照（エラー防止）
                 const solidAite = coreAite[0] || middleAite[0] || {no: '-'}; 
                 const solidAite2 = coreAite[1] || middleAite[1] || valueAite[0] || {no: '-'}; 
                 const holeAite = valueAite[0] || middleAite[0] || {no: '-'}; 
 
                 // --- 出力生成 ---
-                const course = document.getElementById('course').value;
-                const dist = document.getElementById('dist').value || "---";
                 const condLabel = document.getElementById('cond').options[document.getElementById('cond').selectedIndex].text;
-                document.getElementById('res-header').innerText = `${course} ${dist}m (${condLabel}) / ${modeW ? '穴狙い攻撃陣形' : '標準安定陣形'}`;
+                document.getElementById('res-header').innerText = `${course} ${dist}m (${condLabel}) / ${totalHorses}頭立て / ${modeW ? '穴狙い攻撃陣形' : '標準安定陣形'}`;
                 
                 let betHtml = `【推奨軸】 ${jiku.no} (${jiku.name}) ${jiku.pop}人/${jiku.odds}倍\n\n`;
                 
@@ -261,6 +287,7 @@
                     let tag = "";
                     if (h.no === jiku.no) tag = "";
                     else if (h.odds < 4.0) tag = '<span class="ana-mark" style="background:#ef4444">本命級</span>';
+                    else if (h.isFavoredFrame && h.odds >= 10.0) tag = '<span class="bias-mark">絶好枠</span>';
                     else if (middleAite.some(a => a.no === h.no)) tag = '<span class="ana-mark" style="background:#f59e0b">中穴</span>';
                     else if (valueAite.some(a => a.no === h.no)) tag = '<span class="ana-mark" style="background:#8b5cf6">大穴</span>';
 
@@ -270,14 +297,4 @@
                 
                 document.getElementById('graph-output').innerHTML = graphHtml;
                 document.getElementById('res-area').style.display = 'block';
-                btn.innerText = "🚀 スナイパー分析・買い目生成";
-
-            } catch (e) {
-                btn.innerText = "🚀 スナイパー分析・買い目生成";
-                alert("【エラー】\n" + e.message);
-            }
-        }, 100);
-    }
-</script>
-</body>
-</html>
+                btn.innerTe
