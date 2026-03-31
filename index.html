@@ -14,10 +14,10 @@
         .container { max-width: 500px; margin: auto; }
         .panel { background: var(--bg-card); padding: 15px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 12px; }
         .section-title { font-size: 11px; font-weight: bold; color: var(--warn); margin-bottom: 8px; letter-spacing: 1px; }
-        
+
         .grid-3 { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-        
+
         select, input, textarea { width: 100%; padding: 10px; background: var(--bg-input); color: #fff; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box; }
         textarea { height: 130px; font-family: monospace; font-size: 12px; margin-top: 5px; }
 
@@ -108,6 +108,7 @@
             document.getElementById('btnW').classList.toggle('active');
             if(modeW) { modeA = false; document.getElementById('btnA').classList.remove('active'); }
         }
+        console.log("modeA:", modeA, "modeW:", modeW); // デバッグ用ログ
     }
 
     function run() {
@@ -164,19 +165,23 @@
                     let popFactor = (25 / (pop + 1.2));
                     let distBonus = (isLong && odds >= 15.0) ? 0.8 : 0;
 
-                    // 馬場適性
+                    // 馬場適性 (一旦保留)
                     let condBonus = 1.0;
-                    //if (isRough) { //道悪の馬場適性については、元データに道悪実績がないので、とりあえず一律で補正をかけるのはやめておく
-                    //    condBonus = 1.1;
-                    //}
 
                     let baseScore = parseFloat(((rScore + popFactor + distBonus) * condBonus).toFixed(3));
 
                     // 内部の軸決定用スコア（本命ガード）
-                    let favoriteBonus = (pop === 1 && odds >= 1.0 && odds <= 2.0) ? -0.2 * rScore : 0; // 1番人気の場合、スコアを減点
-                    if (pop >= 4 && pop <= 7 && odds >= 5.0 && odds <= 15.0) {
-                        favoriteBonus = rScore * 0.1;  // 穴軸候補の場合、スコアを加点
+                    let favoriteBonus = 0;
+
+                    if (pop === 1) {
+                        favoriteBonus = (odds <= 3.0) ? -0.1 * rScore : 0; // 1番人気の場合、スコアを減点 (調整)
+                    } else if (pop >= 2 && pop <= 3) {
+                        favoriteBonus = 0.05 * rScore; // 2,3番人気に少しボーナス
                     }
+                    if (pop >= 4 && pop <= 7 && odds >= 5.0 && odds <= 15.0) {
+                        favoriteBonus += rScore * 0.1;  // 穴軸候補の場合、スコアを加点 (調整)
+                    }
+
                     let jikuScore = baseScore + favoriteBonus;
 
                     // 大穴抽出用EVロジック（マイルドに調整）
@@ -198,7 +203,8 @@
 
                 let jiku;
                 if (modeW) {
-                    jiku = [...pool].sort((a,b) => b.ev - a.ev)[0];
+                    // 穴軸モード: EVと指数スコアを考慮 (調整)
+                    jiku = [...pool].sort((a,b) => (b.ev * 0.6 + b.score * 0.4) - (a.ev * 0.6 + a.score * 0.4))[0];
                 } else {
                     jiku = [...pool].sort((a,b) => b.jikuScore - a.jikuScore)[0];
                 }
@@ -283,10 +289,10 @@
                     if (i > 0 && diff > 0.8) {
                         graphHtml += `<div class="dansou-mark">⚠️ 指数断層 (${diff}pt差)</div>`;
 
-                    // 断層上の馬を強調表示
-                    if (diff >= 2.0 && lastDiff < 2.0) {  // 2pt以上の断層
-                       graphHtml = graphHtml.replace(/<\/span><\/div><\/div>$/, ' <span class="bias-mark">断層上</span></span></div></div>');
-                    }
+                        // 断層上の馬を強調表示
+                        if (diff >= 2.0 && lastDiff < 2.0) {  // 2pt以上の断層
+                           graphHtml = graphHtml.replace(/<\/span><\/div><\/div>$/, ' <span class="bias-mark">断層上</span></span></div></div>');
+                        }
                     }
 
                     lastDiff = parseFloat(diff);
