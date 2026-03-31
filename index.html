@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI競馬分析 V39.0 Sniper & Bomber</title>
+    <title>AI競馬分析 V40.0 Final Sniper</title>
     <style>
         :root {
             --bg-main: #020617; --bg-card: #1e293b; --bg-input: #0f172a;
@@ -47,8 +47,15 @@
         <div class="section-title">Race Settings</div>
         <div class="grid-3">
             <select id="course">
-                <option>園田</option><option>船橋</option><option>大井</option><option>川崎</option><option>浦和</option>
-                <option>高知</option><option>佐賀</option><option>東京</option><option>中山</option>
+                <optgroup label="中央競馬 (JRA)">
+                    <option>東京</option><option>中山</option><option>中京</option><option>京都</option><option>阪神</option>
+                    <option>札幌</option><option>函館</option><option>福島</option><option>新潟</option><option>小倉</option>
+                </optgroup>
+                <optgroup label="地方競馬 (NAR)">
+                    <option>大井</option><option>川崎</option><option>船橋</option><option>浦和</option><option>門別</option>
+                    <option>盛岡</option><option>水沢</option><option>金沢</option><option>笠松</option><option>名古屋</option>
+                    <option>園田</option><option>姫路</option><option>高知</option><option>佐賀</option><option>帯広</option>
+                </optgroup>
             </select>
             <select id="surface">
                 <option>ダート</option><option>芝</option>
@@ -119,31 +126,36 @@
                 let hList =[];
 
                 lines.forEach((line) => {
-                    const normalized = line.replace(/[　\t,()（）:：\-+]/g, ' ').replace(/倍|人気|人|pt/g, '').trim();
-                    const nums = normalized.match(/\d+(\.\d+)?/g);
-                    if (!nums || nums.length < 3) return;
+                    // 全角・記号などをスペースに置換して不要な文字を削除
+                    const clean = line.replace(/[　\t,()（）:：\-+]/g, ' ').replace(/倍|人気|人|pt/g, '').trim();
+                    const parts = clean.split(/\s+/);
+                    if (parts.length < 3) return;
 
-                    const parts = normalized.split(/\s+/);
-                    const no = nums[0];
+                    const no = parts[0];
                     const name = parts[1] || "馬" + no;
-                    const numVals = nums.map(v => parseFloat(v));
                     
-                    const pop = numVals.find(n => n >= 1 && n <= 22) || 10;
-                    const odds = numVals.find(n => n > 1.0 && n < 1000 && n !== pop) || 10.0;
-                    const rScore = numVals.find(n => n >= 30 && n <= 95) || 55.0;
+                    // 馬名より後ろにある数値を順番に取得する（馬番の誤認を完全に防ぐ）
+                    const numVals =[];
+                    for(let i = 2; i < parts.length; i++) {
+                        const val = parseFloat(parts[i]);
+                        if(!isNaN(val)) numVals.push(val);
+                    }
+                    
+                    // 順番通りに 人気・オッズ・指数 を取得
+                    const pop = numVals.length > 0 ? parseInt(numVals[0]) : 10;
+                    const odds = numVals.length > 1 ? parseFloat(numVals[1]) : 10.0;
+                    const rScore = numVals.length > 2 ? parseFloat(numVals[2]) : 55.0;
 
-                    // 【断層正常化＆能力評価】
+                    // 【能力評価＆断層用スコア】
                     let popFactor = (25 / (pop + 1.2));
                     let distBonus = (isLong && odds >= 15.0) ? 0.8 : 0;
-                    
-                    // baseScore は純粋な能力＋適性（ランキングと断層に使用）
                     let baseScore = parseFloat((rScore + popFactor + distBonus).toFixed(3));
                     
-                    // jikuScore は内部の軸決定用（圧倒的人気馬を逃さないため）
+                    // 【内部の軸決定用スコア（本命ガード）】
                     let favoriteBonus = (pop === 1 && odds < 3.5 && !modeW) ? 100 : 0;
                     let jikuScore = baseScore + favoriteBonus;
 
-                    // 【大穴抽出EVロジック改善】オッズの影響力を強め、1番のような超大穴を確実にあぶり出す
+                    // 【大穴抽出EVロジック】
                     let ev = baseScore * Math.pow(odds, 0.45) * (isRough ? 1.25 : 1.0);
 
                     hList.push({ no, name, pop, odds, score: baseScore, jikuScore, ev, raw: rScore });
@@ -162,7 +174,7 @@
                     jiku = [...pool].sort((a,b) => b.jikuScore - a.jikuScore)[0];
                 }
 
-                // --- 【新】スロット選定 ---
+                // --- スロット選定 ---
                 const others = hList.filter(h => h.no !== jiku.no);
                 
                 let coreCount = modeW ? 1 : 2;
@@ -175,11 +187,11 @@
                 let middleCandidates = others.filter(h => !coreAite.some(c => c.no === h.no) && h.odds >= 8.0 && h.odds <= 45.0);
                 let middleAite = middleCandidates.sort((a,b) => b.score - a.score).slice(0, 2);
 
-                // 3. 爆撃枠（残りからEVが最大の馬。ここで大穴の1番が拾われる）
+                // 3. 爆撃枠（残りからEVが最大の馬）
                 let remaining = others.filter(h => !coreAite.some(c => c.no === h.no) && !middleAite.some(m => m.no === h.no));
                 let valueAite = remaining.sort((a,b) => b.ev - a.ev).slice(0, valueCount);
 
-                // もし中穴ゾーンの馬が足りない場合は、実力順から補充
+                // 補充処理
                 while(middleAite.length < 2 && remaining.length > 0) {
                     remaining.sort((a,b) => b.score - a.score);
                     middleAite.push(remaining.shift());
@@ -189,8 +201,8 @@
                 const aite4 = aite5.slice(0, 4);
 
                 // --- 【新搭載】資金極少・超厳選 買い目 ---
-                const solidAite = coreAite[0]; // 実力最上位
-                const solidAite2 = coreAite[1] || middleAite[0]; // 実力2番手
+                const solidAite = coreAite[0] || middleAite[0]; // 実力最上位
+                const solidAite2 = coreAite[1] || middleAite[1] || valueAite[0]; // 実力2番手
                 const holeAite = valueAite[0] || middleAite[0]; // 爆発力トップ
 
                 // 出力
@@ -201,55 +213,10 @@
                 
                 let betHtml = `【推奨軸】 ${jiku.no} (${jiku.name}) ${jiku.pop}人/${jiku.odds}倍\n\n`;
                 
-                betHtml += `【💸 資金極少！超厳選 3連単】\n`;
-                betHtml += ` 🎯 1点勝負: ${jiku.no} → ${solidAite.no} → ${solidAite2.no}\n`;
-                betHtml += ` 💥 一撃2点: ${jiku.no} → ${solidAite.no} ↔ ${holeAite.no}\n\n`;
+                betHtml += `【💸 資金極少！超厳選買い目】\n`;
+                betHtml += ` 🎯 3連単(1点): ${jiku.no} → ${solidAite.no} → ${solidAite2.no}\n`;
+                betHtml += ` 💥 3連単(2点): ${jiku.no} → ${solidAite.no} ↔ ${holeAite.no}\n`;
+                betHtml += ` 💰 馬単/馬連(1点): ${jiku.no} ↔ ${solidAite.no}\n\n`;
 
                 betHtml += `【3連複フォーメーション】\n`;
-                betHtml += ` 1頭目: ${jiku.no}\n`;
-                betHtml += ` 2頭目: ${coreAite.map(h=>h.no).join(', ')}${middleAite.length > 0 ? ', ' + middleAite[0].no : ''}\n`;
-                betHtml += ` 3頭目: ${aite5.map(h=>h.no).join(', ')}\n\n`;
-
-                betHtml += `【3連単フォーメーション】\n`;
-                betHtml += ` 1着: ${jiku.no}\n`;
-                betHtml += ` 2着: ${coreAite.map(h=>h.no).join(', ')}\n`;
-                betHtml += ` 3着: ${aite5.map(h=>h.no).join(', ')}\n\n`;
-
-                betHtml += `【推奨3連単マルチ】\n`;
-                betHtml += ` 🔥 36点(相手4頭): ${jiku.no} ↔ ${aite4.map(h=>h.no).join(', ')}\n`;
-                betHtml += ` 🎯 60点(相手5頭): ${jiku.no} ↔ ${aite5.map(h=>h.no).join(', ')}\n\n`;
-                
-                betHtml += `【馬連・ワイド流し】\n 軸: ${jiku.no} ↔ 相手: ${aite5.map(h=>h.no).join(', ')}`;
-                
-                document.getElementById('bet-output').innerHTML = betHtml;
-
-                // ランキング (本来の能力値 score を使用)
-                hList.sort((a,b) => b.score - a.score);
-                const maxS = Math.max(...hList.map(h => h.score));
-                let graphHtml = "";
-                hList.forEach((h, i) => {
-                    const diff = i > 0 ? (hList[i-1].score - h.score).toFixed(2) : 0;
-                    if (i > 0 && diff > 0.8) graphHtml += `<div class="dansou-mark">⚠️ 指数断層 (${diff}pt差)</div>`;
-                    
-                    let tag = "";
-                    if (h.no === jiku.no) tag = "";
-                    else if (h.odds < 4.0) tag = '<span class="ana-mark" style="background:#ef4444">本命級</span>';
-                    else if (middleAite.some(a => a.no === h.no)) tag = '<span class="ana-mark" style="background:#f59e0b">中穴</span>';
-                    else if (valueAite.some(a => a.no === h.no)) tag = '<span class="ana-mark" style="background:#8b5cf6">大穴</span>';
-
-                    const isJ = h.no === jiku.no ? '<span class="jiku-label">推奨軸</span>' : '';
-                    graphHtml += `<div class="bar-row"><div class="bar-info"><span>${isJ}${i+1}. ${h.no} ${h.name} <small>${h.odds}倍</small>${tag}</span><span>${h.score.toFixed(1)}pt</span></div><div class="bar-bg"><div class="bar-fill ${h.odds < 5 ? '' : 'ana'}" style="width:${(h.score/maxS*100)}%"></div></div></div>`;
-                });
-                document.getElementById('graph-output').innerHTML = graphHtml;
-                document.getElementById('res-area').style.display = 'block';
-                btn.innerText = "🚀 スナイパー分析・買い目生成";
-
-            } catch (e) {
-                btn.innerText = "🚀 スナイパー分析・買い目生成";
-                alert("データの解析に失敗しました。コピー内容を確認してください。");
-            }
-        }, 100);
-    }
-</script>
-</body>
-</html>
+                betHtml += `
