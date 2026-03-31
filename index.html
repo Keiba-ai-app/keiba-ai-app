@@ -2,67 +2,58 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>AI競馬分析 V51.0 Restore</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI競馬分析 V52.0 Final Restoration</title>
     <style>
-        body { background: #020617; color: #f8fafc; font-family: sans-serif; padding: 15px; }
-        .panel { background: #1e293b; padding: 15px; border-radius: 8px; border: 1px solid #334155; }
-        textarea { width: 100%; height: 180px; background: #0f172a; color: #fff; border: 1px solid #334155; padding: 10px; box-sizing: border-box; }
-        button { width: 100%; padding: 15px; background: #2563eb; color: white; border: none; font-weight: bold; margin-top: 10px; border-radius: 5px; cursor: pointer; }
-        #output { margin-top: 20px; white-space: pre-wrap; font-family: monospace; background: #1e293b; padding: 15px; border-radius: 5px; border-left: 5px solid #3b82f6; }
+        :root { --bg: #0f172a; --text: #f8fafc; --accent: #2563eb; --card: #1e293b; }
+        body { background: var(--bg); color: var(--text); font-family: sans-serif; padding: 10px; margin: 0; }
+        .container { max-width: 500px; margin: auto; }
+        .panel { background: var(--card); padding: 15px; border-radius: 8px; border: 1px solid #334155; }
+        select, input, textarea { width: 100%; padding: 10px; background: #0f172a; color: #fff; border: 1px solid #334155; border-radius: 4px; box-sizing: border-box; margin-bottom: 5px; }
+        textarea { height: 150px; font-family: monospace; }
+        .btn-group { display: flex; gap: 5px; margin: 10px 0; }
+        .tgl { flex: 1; padding: 10px; background: #334155; border: none; border-radius: 4px; color: #94a3b8; font-weight: bold; cursor: pointer; }
+        .tgl.active { background: var(--accent); color: white; }
+        .exec-btn { width: 100%; padding: 15px; background: var(--accent); color: white; border: none; font-weight: bold; font-size: 16px; border-radius: 5px; cursor: pointer; }
+        #res-area { margin-top: 20px; display: none; }
+        .card { background: var(--card); padding: 15px; border-radius: 8px; border-left: 4px solid var(--accent); margin-bottom: 15px; }
+        #bet-output { white-space: pre-wrap; font-family: monospace; font-size: 14px; }
+        .section-title { font-size: 12px; font-weight: bold; color: #fbbf24; margin-bottom: 10px; }
+        .bar-row { margin-bottom: 8px; }
+        .bar-bg { width: 100%; height: 6px; background: #000; border-radius: 3px; }
+        .bar-fill { height: 100%; background: var(--accent); }
     </style>
 </head>
 <body>
+
+<div class="container">
     <div class="panel">
-        <textarea id="raw" placeholder="着順 枠番 馬番 馬名 タイム オッズ ...
-データをここへ貼り付け"></textarea>
-        <button onclick="run()">🚀 分析開始・買い目生成</button>
+        <div class="section-title">Race Settings</div>
+        <div class="grid-3" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px;">
+            <select id="course">
+                <option>船橋</option><option>園田</option><option>大井</option><option>川崎</option><option>浦和</option>
+                <option>高知</option><option>佐賀</option><option>東京</option><option>中山</option><option>中京</option>
+            </select>
+            <select id="surface"><option>ダート</option><option>芝</option></select>
+            <input type="number" id="dist" value="1200">
+        </div>
+        <div class="grid-2" style="display:grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+            <select id="dir"><option>左回り</option><option>右回り</option></select>
+            <select id="cond">
+                <option value="good">良</option><option value="soft">稍重</option>
+                <option value="heavy">重</option><option value="bad">不良</option>
+            </select>
+        </div>
+
+        <div class="section-title">AI Mode Selection</div>
+        <div class="btn-group">
+            <button id="btnA" class="tgl" onclick="toggle('A')">1人気消し</button>
+            <button id="btnW" class="tgl" onclick="toggle('W')">穴軸モード</button>
+        </div>
+
+        <textarea id="raw" placeholder="着順 枠番 馬番 馬名 タイム オッズ..."></textarea>
+        <button class="exec-btn" onclick="run()">🚀 分析開始・買い目生成</button>
     </div>
-    <div id="output" style="display:none;"></div>
 
-<script>
-function run() {
-    const raw = document.getElementById('raw').value.trim();
-    if(!raw) return;
-
-    let hList = [];
-    const lines = raw.split('\n');
-
-    lines.forEach(line => {
-        // 画像データのような形式を解析するため、数値のみを抽出
-        const nums = line.match(/\d+(\.\d+)?/g);
-        if(!nums || nums.length < 3) return;
-
-        // データの順序: 着順(不要), 枠番(不要), 馬番, タイム(不要), オッズ, 人気
-        // 指数は最後に追加されている想定で読み取る
-        const no = nums[2]; 
-        const odds = nums[nums.length-2];
-        const pop = nums[nums.length-1];
-        
-        // 指数は別途入力があると仮定し、なければオッズからAI推定
-        const score = (100 / odds) + (20 / pop); 
-
-        hList.push({ no, pop, odds, score });
-    });
-
-    if(hList.length < 3) return;
-
-    hList.sort((a,b) => b.score - a.score);
-    let jiku = hList[0];
-    let aite = hList.filter(h => h.no !== jiku.no).slice(0, 5);
-
-    let res = `【推奨軸】 ${jiku.no}番\n`;
-    res += `【推奨相手】 ${aite.map(h => h.no + "番").join(", ")}\n\n`;
-    res += `【3連単マルチ(36点)】\n${jiku.no} ↔ ${aite.slice(0,3).map(h => h.no).join(", ")}\n\n`;
-    res += `【3連単マルチ(60点)】\n${jiku.no} ↔ ${aite.map(h => h.no).join(", ")}\n\n`;
-    res += `【指数ランキング】\n`;
-    hList.forEach((h, i) => {
-        res += `${i+1}位: ${h.no}番 (${h.score.toFixed(1)}pt)\n`;
-    });
-
-    const out = document.getElementById('output');
-    out.innerText = res;
-    out.style.display = 'block';
-}
-</script>
-</body>
-</html>
+    <div id="res-area">
+        <div cla
