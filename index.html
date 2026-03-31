@@ -108,7 +108,9 @@
             document.getElementById('btnW').classList.toggle('active');
             if(modeW) { modeA = false; document.getElementById('btnA').classList.remove('active'); }
         }
-        console.log("modeA:", modeA, "modeW:", modeW); // デバッグ用ログ
+        console.log("toggle() called. modeA:", modeA, "modeW:", modeW); // デバッグ用ログ
+        console.log("btnA.classList:", document.getElementById('btnA').classList);
+        console.log("btnW.classList:", document.getElementById('btnW').classList);
     }
 
     function run() {
@@ -249,6 +251,22 @@
                 const solidAite = coreAite[0] || {no: '-'};
                 const solidAite2 = coreAite[1] || valueAite[0] || {no: '-'};
                 const holeAite = valueAite[0] || {no: '-'};
+
+                // デバッグ用: 各変数の値をコンソールに出力
+                console.log("selCourse:", selCourse);
+                console.log("selSurf:", selSurf);
+                console.log("selCond:", selCond);
+                console.log("isRough:", isRough);
+                console.log("distValStr:", distValStr);
+                console.log("isLong:", isLong);
+                console.log("hList:", hList);
+                console.log("modeA:", modeA);
+                console.log("modeW:", modeW);
+                console.log("jiku:", jiku);
+                console.log("coreAite:", coreAite);
+                console.log("valueAite:", valueAite);
+                console.log("himoAite:", himoAite);
+                console.log("aite7:", aite7);
 
                 // --- 出力生成 ---
                 document.getElementById('res-header').innerText = `${selCourse} ${distValStr}m (${condLabel}) / ${hList.length}頭立て / ${modeW ? '穴狙い攻撃陣形' : '標準安定陣形'}`;
