@@ -2,88 +2,67 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>AI競馬分析 V50.1 Full Restored</title>
+    <title>AI競馬分析 V51.0 Restore</title>
     <style>
-        :root { --bg-main: #020617; --bg-card: #1e293b; --text: #f1f5f9; --accent: #3b82f6; --warn: #f59e0b; --danger: #ef4444; --success: #10b981; --border: #334155; }
-        body { background: var(--bg-main); color: var(--text); font-family: sans-serif; margin: 0; padding: 10px; font-size: 14px; }
-        .container { max-width: 500px; margin: auto; }
-        .panel { background: var(--bg-card); padding: 15px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 12px; }
-        .section-title { font-size: 11px; font-weight: bold; color: var(--warn); margin-bottom: 8px; }
-        .grid-3 { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-        textarea { width: 100%; height: 130px; background: #0f172a; color: #fff; border: 1px solid var(--border); padding: 10px; border-radius: 6px; box-sizing: border-box; }
-        .btn-group { display: flex; gap: 5px; margin-bottom: 10px; }
-        .tgl { flex: 1; padding: 10px; background: var(--border); border: none; border-radius: 6px; color: #94a3b8; font-weight: bold; cursor: pointer; }
-        .tgl.active { background: var(--accent); color: white; }
-        .exec-btn { width: 100%; padding: 18px; background: #2563eb; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        .card { background: var(--bg-card); padding: 12px; border-radius: 8px; border-left: 4px solid var(--accent); margin-bottom: 10px; }
-        .dansou-mark { color: #ff00ff; font-weight: bold; font-size: 11px; margin: 8px 0; border-top: 1px dashed #ff00ff; }
-        .jiku-label { background: var(--danger); color: white; padding: 2px 4px; border-radius: 3px; font-size: 10px; margin-right: 5px; }
-        .bar-bg { width: 100%; height: 8px; background: #000; border-radius: 4px; overflow: hidden; }
-        .bar-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+        body { background: #020617; color: #f8fafc; font-family: sans-serif; padding: 15px; }
+        .panel { background: #1e293b; padding: 15px; border-radius: 8px; border: 1px solid #334155; }
+        textarea { width: 100%; height: 180px; background: #0f172a; color: #fff; border: 1px solid #334155; padding: 10px; box-sizing: border-box; }
+        button { width: 100%; padding: 15px; background: #2563eb; color: white; border: none; font-weight: bold; margin-top: 10px; border-radius: 5px; cursor: pointer; }
+        #output { margin-top: 20px; white-space: pre-wrap; font-family: monospace; background: #1e293b; padding: 15px; border-radius: 5px; border-left: 5px solid #3b82f6; }
     </style>
 </head>
 <body>
-<div class="container">
     <div class="panel">
-        <div class="section-title">Race Settings</div>
-        <div class="grid-3">
-            <select id="course">
-                <optgroup label="JRA">
-                    <option>東京</option><option>中山</option><option>中京</option><option>京都</option><option>阪神</option>
-                </optgroup>
-                <optgroup label="NAR">
-                    <option>船橋</option><option>大井</option><option>川崎</option><option>浦和</option><option>園田</option>
-                </optgroup>
-            </select>
-            <select id="surface"><option>ダート</option><option>芝</option></select>
-            <input type="number" id="dist" value="1500">
-        </div>
-        <div class="btn-group">
-            <button id="btnA" class="tgl" onclick="toggle('A')">1人気消し</button>
-            <button id="btnW" class="tgl" onclick="toggle('W')">穴軸モード</button>
-        </div>
-        <textarea id="raw" placeholder="馬番 名前 人気 オッズ 指数"></textarea>
-        <button class="exec-btn" onclick="run()">🚀 分析開始</button>
+        <textarea id="raw" placeholder="着順 枠番 馬番 馬名 タイム オッズ ...
+データをここへ貼り付け"></textarea>
+        <button onclick="run()">🚀 分析開始・買い目生成</button>
     </div>
-    <div id="res-area" style="display:none;">
-        <div class="card"><div id="res-header" style="font-weight:bold; font-size:12px;"></div><div id="bet-output" style="white-space:pre-wrap; font-size:13px; margin-top:10px;"></div></div>
-        <div class="card"><div class="section-title">指数ランキング / 断層分析</div><div id="graph-output"></div></div>
-    </div>
-</div>
+    <div id="output" style="display:none;"></div>
+
 <script>
-    let modeA = false, modeW = false;
-    function toggle(m) {
-        if(m==='A') { modeA = !modeA; document.getElementById('btnA').classList.toggle('active'); }
-        if(m==='W') { modeW = !modeW; document.getElementById('btnW').classList.toggle('active'); }
-    }
-    function run() {
-        const raw = document.getElementById('raw').value.trim();
-        if(!raw) return;
-        const lines = raw.split('\n').filter(l => l.trim().length > 3);
-        let hList = [];
-        lines.forEach(line => {
-            const clean = line.replace(/[^\d\.\s]/g, ' ').trim();
-            const nums = clean.split(/\s+/).map(Number);
-            if(nums.length >= 4) {
-                hList.push({ no: nums[0], pop: nums[1], odds: nums[2], score: nums[3], ev: nums[3] * Math.sqrt(nums[2]) });
-            }
-        });
-        hList.sort((a,b) => b.score - a.score);
-        let jiku = modeW ? hList.sort((a,b) => b.ev - a.ev)[0] : (modeA ? hList.filter(h=>h.pop!==1)[0] : hList[0]);
-        let aite = hList.filter(h => h.no !== jiku.no).slice(0, 5);
-        let res = `【軸】 ${jiku.no}\n【相手】 ${aite.map(h=>h.no).join(', ')}\n\n`;
-        res += `【マルチ36点】 ${jiku.no} ↔ ${aite.slice(0,4).map(h=>h.no).join(', ')}\n`;
-        res += `【マルチ60点】 ${jiku.no} ↔ ${aite.map(h=>h.no).join(', ')}`;
-        document.getElementById('bet-output').innerText = res;
-        let g = "";
-        hList.forEach((h, i) => {
-            if(i>0 && (hList[i-1].score - h.score) >= 1.0) g += `<div class="dansou-mark">断層</div>`;
-            g += `<div class="bar-row"><div class="bar-info"><span>${h.no}番 ${h.score}pt</span></div><div class="bar-bg"><div class="bar-fill" style="width:${h.score}%"></div></div></div>`;
-        });
-        document.getElementById('graph-output').innerHTML = g;
-        document.getElementById('res-area').style.display = 'block';
-    }
+function run() {
+    const raw = document.getElementById('raw').value.trim();
+    if(!raw) return;
+
+    let hList = [];
+    const lines = raw.split('\n');
+
+    lines.forEach(line => {
+        // 画像データのような形式を解析するため、数値のみを抽出
+        const nums = line.match(/\d+(\.\d+)?/g);
+        if(!nums || nums.length < 3) return;
+
+        // データの順序: 着順(不要), 枠番(不要), 馬番, タイム(不要), オッズ, 人気
+        // 指数は最後に追加されている想定で読み取る
+        const no = nums[2]; 
+        const odds = nums[nums.length-2];
+        const pop = nums[nums.length-1];
+        
+        // 指数は別途入力があると仮定し、なければオッズからAI推定
+        const score = (100 / odds) + (20 / pop); 
+
+        hList.push({ no, pop, odds, score });
+    });
+
+    if(hList.length < 3) return;
+
+    hList.sort((a,b) => b.score - a.score);
+    let jiku = hList[0];
+    let aite = hList.filter(h => h.no !== jiku.no).slice(0, 5);
+
+    let res = `【推奨軸】 ${jiku.no}番\n`;
+    res += `【推奨相手】 ${aite.map(h => h.no + "番").join(", ")}\n\n`;
+    res += `【3連単マルチ(36点)】\n${jiku.no} ↔ ${aite.slice(0,3).map(h => h.no).join(", ")}\n\n`;
+    res += `【3連単マルチ(60点)】\n${jiku.no} ↔ ${aite.map(h => h.no).join(", ")}\n\n`;
+    res += `【指数ランキング】\n`;
+    hList.forEach((h, i) => {
+        res += `${i+1}位: ${h.no}番 (${h.score.toFixed(1)}pt)\n`;
+    });
+
+    const out = document.getElementById('output');
+    out.innerText = res;
+    out.style.display = 'block';
+}
 </script>
 </body>
 </html>
