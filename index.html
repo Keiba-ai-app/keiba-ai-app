@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI競馬分析 V44.0 Straight Hybrid [DEBUG]</title>
+    <title>AI競馬分析 V44.1 Straight Hybrid [DEBUG]</title> <!-- タイトル更新: バージョン番号を44.1に変更 -->
     <style>
         :root {
             --bg-main: #020617; --bg-card: #1e293b; --bg-input: #0f172a;
@@ -104,10 +104,11 @@
         if(m==='W') {
             modeW = !modeW;
         }
-        console.log("toggle() called. modeA:", modeA, "modeW:", modeW); // 状態確認
+        console.log("toggle() called. modeA:", modeA, "modeW:", modeW);
     }
 
     function run() {
+        console.log("run() function called"); // run関数が呼ばれているか確認
         const rawInput = document.getElementById('raw').value.trim();
         const btn = document.getElementById('execBtn');
 
@@ -133,19 +134,18 @@
                     const odds = parseFloat(parts[3]);
                     const rScore = parseFloat(parts[4]);
 
-                    hList.push({ no, name, pop, odds, score: rScore }); // 簡略化
+                    hList.push({ no, name, pop, odds, score: rScore });
                 }
 
-                // 軸馬選定（仮）
-                let jiku = hList[0]; // 最初の馬を仮の軸馬とする
+                let jiku = hList[0];
 
                 if (modeA && hList[0].pop === 1) {
-                    jiku = hList[1]; // 1人気消しモードなら2番目を軸馬
+                    jiku = hList[1];
                 }
 
                 console.log("modeA:", modeA, "modeW:", modeW);
                 console.log("hList:", hList);
-                console.log("jiku:", jiku);  // 軸馬の確認
+                console.log("jiku:", jiku);
 
                 let betHtml = `【推奨軸】 ${jiku.no} (${jiku.name}) ${jiku.pop}人/${jiku.odds}倍\n\n`;
                 document.getElementById('bet-output').innerHTML = betHtml;
