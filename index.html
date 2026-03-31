@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI競馬分析 V37.0 Triforce Pick</title>
+    <title>AI競馬分析 V38.0 Variable Engine</title>
     <style>
         :root {
             --bg-main: #020617; --bg-card: #1e293b; --bg-input: #0f172a;
@@ -70,13 +70,13 @@
         </div>
 
         <textarea id="raw" placeholder="馬番 名前 人気 オッズ 指数 を貼り付け"></textarea>
-        <button id="execBtn" class="exec-btn" onclick="run()">🚀 新ロジック分析・買い目生成</button>
+        <button id="execBtn" class="exec-btn" onclick="run()">🚀 動的分析・買い目生成</button>
     </div>
 
     <div id="res-area" style="display:none;">
         <div class="card" style="border-left-color: var(--success);">
             <div id="res-header" style="font-weight:bold; font-size:12px; color:var(--muted); margin-bottom:5px;"></div>
-            <div class="section-title" style="color:#fff">【AI推奨：ゾーン網羅・最強買い目】</div>
+            <div class="section-title" style="color:#fff">【AI推奨：状況連動フォーメーション】</div>
             <div id="bet-output" style="white-space: pre-wrap; font-family: monospace; font-size: 13px;"></div>
         </div>
         <div class="card" style="border-left-color: #ff00ff;">
@@ -107,16 +107,20 @@
         const btn = document.getElementById('execBtn');
         if(!rawInput) { alert("データを入力してください"); return; }
         
-        btn.innerText = "⏳ 演算中...";
+        btn.innerText = "⏳ 環境連動演算中...";
 
         setTimeout(() => {
             try {
                 const lines = rawInput.split('\n').filter(l => l.trim().length > 3);
                 const isRough = (document.getElementById('cond').value === 'heavy' || document.getElementById('cond').value === 'bad');
+                const distVal = parseInt(document.getElementById('dist').value) || 1200;
+                
+                // 距離が長いほど波乱（スタミナ勝負）が起きやすいと判定
+                const isLong = distVal >= 1600;
+
                 let hList =[];
 
                 lines.forEach((line) => {
-                    // 全角スペースや特殊記号を置換し、ノイズを除去
                     const normalized = line.replace(/[　\t,()（）:：\-+]/g, ' ').replace(/倍|人気|人|pt/g, '').trim();
                     const nums = normalized.match(/\d+(\.\d+)?/g);
                     if (!nums || nums.length < 3) return;
@@ -125,23 +129,25 @@
                     const no = nums[0];
                     const pop = parseInt(nums[1]);
                     const odds = parseFloat(nums[2]);
-                    const rScore = nums[3] ? parseFloat(nums[3]) : 55.0; // 生指数
+                    const rScore = nums[3] ? parseFloat(nums[3]) : 55.0;
                     const name = parts[1] || "馬" + no;
 
-                    // 【スコアリング】1番人気の低オッズは不動の軸とするガード
+                    // 1番人気の鉄板ガード
                     let favoriteBonus = (pop === 1 && odds < 3.5 && !modeW) ? 100 : 0;
                     let popFactor = (25 / (pop + 1.2));
                     
-                    const score = parseFloat((rScore + popFactor + favoriteBonus).toFixed(3));
-                    // 【EV計算の最適化】対数を使って、大穴が過大評価されるのを防ぎ、中穴を適正に評価
-                    const ev = (rScore + popFactor) * Math.log10(odds + 2.0) * (isRough ? 1.2 : 1.0);
+                    // 【新機能】距離とオッズの連動ボーナス（長距離の伏兵を拾う）
+                    let distBonus = (isLong && odds >= 15.0) ? 0.8 : 0;
+
+                    const score = parseFloat((rScore + popFactor + favoriteBonus + distBonus).toFixed(3));
+                    // 馬場状態を期待値に乗算
+                    const ev = (rScore + popFactor) * Math.log10(odds + 2.0) * (isRough ? 1.25 : 1.0);
 
                     hList.push({ no, name, pop, odds, score, ev, raw: rScore });
                 });
 
                 if(hList.length < 4) throw new Error("データが足りません");
 
-                // スコアで基本ソート
                 hList.sort((a,b) => b.score - a.score);
 
                 // --- 軸馬の選定 ---
@@ -155,42 +161,44 @@
                     jiku = pool[0];
                 }
 
-                // --- 【新】トライフォース相手選定（本命・中穴・大穴） ---
+                // --- 【新】モード連動・変動型スロット ---
                 const others = hList.filter(h => h.no !== jiku.no);
                 
-                // 1. 鉄板枠（指数上位2頭：1番や10番クラスを確保）
-                let coreAite = [...others].sort((a,b) => b.score - a.score).slice(0, 2);
+                // モードに応じて、実力枠と大穴枠の枚数を動的に変える
+                let coreCount = modeW ? 1 : 2;   // 穴軸時は実力相手を減らす
+                let valueCount = modeW ? 2 : 1;  // 穴軸時は大穴相手を増やす
                 
-                // 2. 中穴枠（オッズ8倍〜40倍のゾーンから、指数上位2頭：7番クラスを逃さず確保）
+                // 1. 鉄板枠（指数上位）
+                let coreAite = [...others].sort((a,b) => b.score - a.score).slice(0, coreCount);
+                
+                // 2. 中穴枠（オッズ8倍〜40倍のゾーンから指数上位を2頭）
                 let middleCandidates = others.filter(h => !coreAite.some(c => c.no === h.no) && h.odds >= 8.0 && h.odds <= 40.0);
                 let middleAite = middleCandidates.sort((a,b) => b.score - a.score).slice(0, 2);
 
-                // 3. 爆撃枠（残りの中から、期待値EVが最大の1頭：一発の大穴）
+                // 3. 爆撃枠（残りから期待値EVが最大の馬）
                 let remaining = others.filter(h => !coreAite.some(c => c.no === h.no) && !middleAite.some(m => m.no === h.no));
-                let valueAite = remaining.sort((a,b) => b.ev - a.ev).slice(0, 1);
+                let valueAite = remaining.sort((a,b) => b.ev - a.ev).slice(0, valueCount);
 
-                // もし中穴ゾーンの馬が足りない場合は、実力順から補充するセーフティネット
+                // もし中穴ゾーンの馬が足りない場合は、実力順から補充
                 while(middleAite.length < 2 && remaining.length > 0) {
                     remaining.sort((a,b) => b.score - a.score);
                     middleAite.push(remaining.shift());
                 }
 
-                let aite5 =[...coreAite, ...middleAite, ...valueAite].filter(h => h !== undefined);
-                
-                // 36点勝負用（実力2頭＋中穴2頭の4頭で構成）
-                const aite4 = [...coreAite, ...middleAite].filter(h => h !== undefined);
+                let aite5 =[...coreAite, ...middleAite, ...valueAite].filter(h => h !== undefined).slice(0,5);
+                const aite4 = aite5.slice(0, 4);
 
                 // 出力
                 const course = document.getElementById('course').value;
                 const dist = document.getElementById('dist').value || "---";
                 const condLabel = document.getElementById('cond').options[document.getElementById('cond').selectedIndex].text;
-                document.getElementById('res-header').innerText = `${course} ${dist}m (${condLabel})`;
+                document.getElementById('res-header').innerText = `${course} ${dist}m (${condLabel}) / ${modeW ? '穴狙い攻撃陣形' : '標準安定陣形'}`;
                 
                 let betHtml = `【推奨軸】 ${jiku.no} (${jiku.name}) ${jiku.pop}人/${jiku.odds}倍\n\n`;
                 
                 betHtml += `【3連複フォーメーション】\n`;
                 betHtml += ` 1頭目: ${jiku.no}\n`;
-                betHtml += ` 2頭目: ${coreAite.map(h=>h.no).join(', ')}\n`;
+                betHtml += ` 2頭目: ${coreAite.map(h=>h.no).join(', ')}${middleAite.length > 0 ? ', ' + middleAite[0].no : ''}\n`;
                 betHtml += ` 3頭目: ${aite5.map(h=>h.no).join(', ')}\n\n`;
 
                 betHtml += `【3連単フォーメーション】\n`;
@@ -216,19 +224,18 @@
                     let tag = "";
                     if (h.no === jiku.no) tag = "";
                     else if (h.odds < 4.0) tag = '<span class="ana-mark" style="background:#ef4444">本命級</span>';
-                    else if (middleAite.some(a => a.no === h.no)) tag = '<span class="ana-mark" style="background:#f59e0b">中穴狙い</span>';
-                    else if (valueAite.some(a => a.no === h.no)) tag = '<span class="ana-mark" style="background:#8b5cf6">爆弾穴</span>';
+                    else if (middleAite.some(a => a.no === h.no)) tag = '<span class="ana-mark" style="background:#f59e0b">中穴</span>';
+                    else if (valueAite.some(a => a.no === h.no)) tag = '<span class="ana-mark" style="background:#8b5cf6">大穴</span>';
 
                     const isJ = h.no === jiku.no ? '<span class="jiku-label">推奨軸</span>' : '';
-                    // 修正：h.raw ではなく、計算された h.score を表示する
                     graphHtml += `<div class="bar-row"><div class="bar-info"><span>${isJ}${i+1}. ${h.no} ${h.name} <small>${h.odds}倍</small>${tag}</span><span>${h.score.toFixed(1)}pt</span></div><div class="bar-bg"><div class="bar-fill ${h.odds < 5 ? '' : 'ana'}" style="width:${(h.score/maxS*100)}%"></div></div></div>`;
                 });
                 document.getElementById('graph-output').innerHTML = graphHtml;
                 document.getElementById('res-area').style.display = 'block';
-                btn.innerText = "🚀 新ロジック分析・買い目生成";
+                btn.innerText = "🚀 動的分析・買い目生成";
 
             } catch (e) {
-                btn.innerText = "🚀 新ロジック分析・買い目生成";
+                btn.innerText = "🚀 動的分析・買い目生成";
                 alert("データの解析に失敗しました。コピー内容を確認してください。");
             }
         }, 100);
