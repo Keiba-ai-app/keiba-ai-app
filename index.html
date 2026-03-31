@@ -3,68 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI競馬分析 Pro Engine</title>
+    <title>AI競馬分析 Pro Engine V2</title>
     <style>
-        :root { --bg: #0f172a; --text: #f8fafc; --accent: #2563eb; --card: #1e293b; }
-        body { background: var(--bg); color: var(--text); font-family: sans-serif; padding: 10px; margin: 0; }
+        :root { --bg: #0f172a; --text: #f8fafc; --accent: #ea580c; --card: #1e293b; --highlight: #fbbf24; }
+        body { background: var(--bg); color: var(--text); font-family: 'Helvetica Neue', Arial, sans-serif; padding: 10px; margin: 0; }
         .container { max-width: 500px; margin: auto; }
-        .panel { background: var(--card); padding: 15px; border-radius: 8px; border: 1px solid #334155; }
-        select, input, textarea { width: 100%; padding: 10px; background: #0f172a; color: #fff; border: 1px solid #334155; border-radius: 4px; box-sizing: border-box; margin-bottom: 5px; }
-        textarea { height: 150px; font-family: monospace; font-size: 12px; }
-        .btn-group { display: flex; gap: 5px; margin: 10px 0; }
-        .tgl { flex: 1; padding: 10px; background: #334155; border: none; border-radius: 4px; color: #94a3b8; font-weight: bold; cursor: pointer; }
-        .tgl.active { background: var(--accent); color: white; }
-        .exec-btn { width: 100%; padding: 15px; background: #ea580c; color: white; border: none; font-weight: bold; font-size: 16px; border-radius: 5px; cursor: pointer; }
-        #res-area { margin-top: 20px; display: none; }
-        .card { background: var(--card); padding: 15px; border-radius: 8px; border-left: 4px solid var(--accent); margin-bottom: 15px; }
-        #bet-output { white-space: pre-wrap; font-family: monospace; font-size: 13px; }
-        .section-title { font-size: 12px; font-weight: bold; color: #fbbf24; margin-bottom: 10px; text-transform: uppercase; }
-        .bar-row { margin-bottom: 8px; }
-        .bar-bg { width: 100%; height: 6px; background: #000; border-radius: 3px; }
-        .bar-fill { height: 100%; background: var(--accent); }
+        .panel { background: var(--card); padding: 15px; border-radius: 8px; border: 1px solid #334155; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        textarea { width: 100%; height: 160px; padding: 12px; background: #0b1120; color: #fff; border: 1px solid #475569; border-radius: 6px; box-sizing: border-box; margin-bottom: 10px; font-family: monospace; font-size: 12px; line-height: 1.4; }
+        .btn-group { display: flex; gap: 8px; margin-bottom: 15px; }
+        .tgl { flex: 1; padding: 12px; background: #334155; border: 1px solid #475569; border-radius: 6px; color: #94a3b8; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .tgl.active { background: var(--accent); color: white; border-color: var(--accent); }
+        .exec-btn { width: 100%; padding: 16px; background: linear-gradient(to right, #ea580c, #db2777); color: white; border: none; font-weight: bold; font-size: 16px; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 10px rgba(234, 88, 12, 0.4); }
+        .exec-btn:active { transform: scale(0.98); }
+        #res-area { margin-top: 15px; display: none; }
+        .card { background: var(--card); padding: 15px; border-radius: 8px; border-left: 4px solid var(--accent); margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+        #bet-output { white-space: pre-wrap; font-family: monospace; font-size: 14px; line-height: 1.6; }
+        .section-title { font-size: 12px; font-weight: bold; color: var(--highlight); margin-bottom: 10px; letter-spacing: 1px; }
+        .bar-row { margin-bottom: 10px; font-size: 13px; }
+        .bar-bg { width: 100%; height: 6px; background: #0b1120; border-radius: 3px; margin-top: 4px; overflow: hidden; }
+        .bar-fill { height: 100%; background: linear-gradient(to right, #3b82f6, #8b5cf6); transition: width 0.5s ease-out; }
+        .ana-badge { background: #dc2626; color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 5px; vertical-align: middle; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="panel">
-        <div class="section-title">Race Settings</div>
-        <select id="course">
-            <!-- JRA -->
-            <optgroup label="JRA">
-                <option>札幌</option><option>函館</option><option>福島</option><option>新潟</option><option>中山</option>
-                <option>東京</option><option>中京</option><option>京都</option><option>阪神</option><option>小倉</option>
-            </optgroup>
-            <!-- 地方 -->
-            <optgroup label="地方競馬">
-                <option>帯広</option><option>門別</option><option>盛岡</option><option>水沢</option><option>浦和</option>
-                <option>船橋</option><option>大井</option><option>川崎</option><option>金沢</option><option>笠松</option>
-                <option>名古屋</option><option>園田</option><option>姫路</option><option>高知</option><option>佐賀</option>
-            </optgroup>
-        </select>
-        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px;">
-            <select id="surface"><option>ダート</option><option>芝</option></select>
-            <input type="number" id="dist" value="1200" placeholder="距離">
-            <select id="cond"><option value="good">良</option><option value="soft">稍重</option><option value="heavy">重</option><option value="bad">不良</option></select>
-        </div>
-
-        <div class="section-title">AI Strategy</div>
+        <div class="section-title">⚡ AI STRATEGY (戦略設定)</div>
         <div class="btn-group">
             <button id="btnA" class="tgl" onclick="toggle('A')">1人気消し</button>
             <button id="btnW" class="tgl" onclick="toggle('W')">穴軸モード</button>
         </div>
 
-        <textarea id="raw" placeholder="[馬番] [オッズ] [人気] を含む行を貼付"></textarea>
-        <button class="exec-btn" onclick="runAnalysis()">🚀 分析開始</button>
+        <div class="section-title">📥 DATA INPUT (出馬表コピペ)</div>
+        <textarea id="raw" placeholder="ここにnetkeibaなどの出馬表をコピー＆ペーストしてください。
+※「馬番」「馬名」「人気」「オッズ」が含まれていれば、自動で数値を解析します。"></textarea>
+        
+        <button class="exec-btn" onclick="runAnalysis()">🚀 分析開始・買い目生成</button>
     </div>
 
     <div id="res-area">
         <div class="card">
-            <div id="res-header" class="section-title" style="color:#fff">予想結果</div>
+            <div class="section-title">🎯 AI予想結果</div>
             <div id="bet-output"></div>
         </div>
-        <div class="card">
-            <div class="section-title">指数ランキング</div>
+        <div class="card" style="border-left-color: #3b82f6;">
+            <div class="section-title" style="color: #60a5fa;">📊 期待値指数ランキング</div>
             <div id="graph-output"></div>
         </div>
     </div>
@@ -72,6 +56,7 @@
 
 <script>
     let modeA = false, modeW = false;
+    
     function toggle(m) {
         if(m==='A') { modeA = !modeA; document.getElementById('btnA').classList.toggle('active'); }
         if(m==='W') { modeW = !modeW; document.getElementById('btnW').classList.toggle('active'); }
@@ -81,42 +66,111 @@
         const raw = document.getElementById('raw').value.trim();
         if(!raw) { alert("データを入力してください"); return; }
 
-        let hList = [];
+        let hList =[];
+        
+        // テキストを1行ずつ解析
         raw.split('\n').forEach(line => {
-            const nums = line.match(/\d+(\.\d+)?/g);
-            if(!nums || nums.length < 2) return;
+            if(line.trim() === "") return;
             
-            // シンプル化：数字が含まれる順に 馬番, オッズ, 人気 とみなす
-            let no = parseInt(nums[0]);
-            let odds = parseFloat(nums[1]);
-            let pop = parseInt(nums[2] || 99); 
-            let score = 50 + (100 / (odds || 1)) - (pop * 2);
+            // 空白で区切って配列化
+            let parts = line.trim().split(/\s+/);
+            let no = null, odds = null, pop = null;
+            
+            // 文字列（馬名など）のインデックスを探す
+            let nameIndex = parts.findIndex(p => isNaN(parseFloat(p))); 
+            
+            if (nameIndex > 0) {
+                // 馬名の直前にある数字を「馬番」として取得
+                let noStr = parts[nameIndex - 1].replace(/[^0-9]/g, '');
+                no = parseInt(noStr);
+            }
 
-            hList.push({ no, odds, pop, score });
+            if (nameIndex !== -1) {
+                // 馬名より後ろの数値からオッズと人気を探す
+                let afterName = parts.slice(nameIndex + 1).filter(p => !isNaN(parseFloat(p)));
+                
+                let floats = afterName.filter(p => p.includes('.')).map(parseFloat);
+                let ints = afterName.filter(p => !p.includes('.')).map(parseInt);
+                
+                if (floats.length > 0) odds = floats[0]; // 小数点を含む最初の数字をオッズとする
+                else if (afterName.length > 0) odds = parseFloat(afterName[0]); 
+                
+                if (ints.length > 0) {
+                    // 1〜18の間の数字を人気とする
+                    let popCandidates = ints.filter(i => i >= 1 && i <= 18);
+                    if(popCandidates.length > 0) pop = popCandidates[0];
+                }
+            } else if (parts.length >= 3) {
+                // すべて数字のみの場合のフォールバック
+                no = parseInt(parts[0]);
+                odds = parseFloat(parts[1]);
+                pop = parseInt(parts[2]);
+            }
+
+            // 正しく抽出できた場合のみリストに追加
+            if(no && odds) {
+                pop = pop || 99; // 人気不明の場合は仮に99
+                
+                // --- スコア計算ロジック ---
+                let score = 50 + (100 / odds) - (pop * 1.5);
+                
+                // 穴軸モードがONなら、オッズが高い馬のスコアを強制的に引き上げる
+                if(modeW) score = 40 + (odds * 1.2) - pop;
+                
+                // スコアの下限を0にする
+                score = Math.max(score, 0);
+
+                hList.push({ no, odds, pop, score });
+            }
         });
 
-        if(hList.length < 3) { alert("馬データが不足しています"); return; }
+        if(hList.length < 3) { 
+            alert("馬データを正しく解析できませんでした。\n「馬番」「人気」「オッズ」が含まれる行をペーストしてください。"); 
+            return; 
+        }
         
+        // 1人気消しモードがONなら、1番人気をリストから除外
+        if(modeA) hList = hList.filter(h => h.pop !== 1);
+
+        // スコア順に並び替え
         hList.sort((a,b) => b.score - a.score);
 
-        let jiku = modeW ? hList.sort((a,b) => b.odds - a.odds)[0] : hList[0];
-        if(modeA && jiku.pop === 1) jiku = hList[1];
+        let jiku = hList[0];
+        let aite = hList.slice(1, 6); // 2位〜6位を相手馬に
 
-        let aite = hList.filter(h => h.no !== jiku.no).slice(0, 5);
+        // 🔥 特注穴馬の抽出（相手馬の中で、オッズ15倍以上または6人気以上）
+        let anauma = aite.find(h => h.odds >= 15 || h.pop >= 6);
 
-        let res = `【推奨軸馬】 ${jiku.no}番\n`;
-        res += `----------------------------\n`;
-        res += `【3連複F】 ${jiku.no} - ${aite.slice(0,2).map(h=>h.no).join(',')} - ${aite.map(h=>h.no).join(',')}\n\n`;
-        res += `【3連単F】 ${jiku.no} → ${aite.slice(0,2).map(h=>h.no).join(',')} → ${aite.map(h=>h.no).join(',')}\n\n`;
-        res += `【馬連流し】 ${jiku.no} － ${aite.map(h=>h.no).join(',')}`;
+        // 結果の組み立て
+        let res = `【👑 推奨軸馬】 ${jiku.no}番 (${jiku.pop}人気 / ${jiku.odds}倍)\n`;
+        if (anauma) {
+            res += `【🔥 特注穴馬】 ${anauma.no}番 (${anauma.pop}人気 / ${anauma.odds}倍)\n`;
+        }
+        res += `--------------------------------\n`;
+        res += `【3連複F】\n ${jiku.no} － ${aite.slice(0,2).map(h=>h.no).join(',')} － ${aite.map(h=>h.no).join(',')}\n\n`;
+        res += `【3連単F】\n ${jiku.no} → ${aite.slice(0,2).map(h=>h.no).join(',')} → ${aite.map(h=>h.no).join(',')}\n\n`;
+        res += `【馬連・ワイド流し】\n ${jiku.no} － ${aite.map(h=>h.no).join(',')}`;
         
         document.getElementById('bet-output').innerText = res;
         
+        // グラフの組み立て
         let graph = "";
         hList.slice(0, 8).forEach((h, i) => {
-            graph += `<div class="bar-row"><div>${i+1}位: ${h.no}番 (${h.score.toFixed(1)}pt)</div><div class="bar-bg"><div class="bar-fill" style="width:${Math.min(h.score, 100)}%"></div></div></div>`;
+            let isAna = (h.odds >= 15 || h.pop >= 6) ? `<span class="ana-badge">穴</span>` : "";
+            // グラフの長さを相対的に計算
+            let barWidth = Math.max(Math.min((h.score / hList[0].score) * 100, 100), 5);
+            
+            graph += `<div class="bar-row">
+                        <div style="display:flex; justify-content:space-between;">
+                            <span>${i+1}位: <b>${h.no}番</b> ${isAna}</span>
+                            <span style="color:#94a3b8;">${h.odds}倍 / ${h.score.toFixed(1)}pt</span>
+                        </div>
+                        <div class="bar-bg"><div class="bar-fill" style="width:${barWidth}%"></div></div>
+                      </div>`;
         });
         document.getElementById('graph-output').innerHTML = graph;
+        
+        // 結果エリアを表示
         document.getElementById('res-area').style.display = 'block';
     }
 </script>
