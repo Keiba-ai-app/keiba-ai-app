@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI競馬分析 V30.0 Predator Alpha</title>
+    <title>AI競馬分析 V31.0 Standard First</title>
     <style>
         :root {
             --bg-main: #020617; --bg-card: #1e293b; --bg-input: #0f172a;
@@ -22,7 +22,7 @@
         textarea { height: 120px; font-family: monospace; font-size: 12px; margin-top: 5px; }
 
         .btn-group { display: flex; gap: 5px; margin-bottom: 10px; }
-        .tgl { flex: 1; padding: 12px; background: var(--border); border: none; border-radius: 6px; color: var(--muted); font-weight: bold; cursor: pointer; font-size: 12px; }
+        .tgl { flex: 1; padding: 10px; background: var(--border); border: none; border-radius: 6px; color: var(--muted); font-weight: bold; cursor: pointer; font-size: 12px; }
         .tgl.active { background: var(--accent); color: white; border: 1px solid #fff; }
 
         .exec-btn { width: 100%; padding: 18px; background: linear-gradient(180deg, #2563eb, #1e40af); color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 18px; cursor: pointer; box-shadow: 0 4px 0 #1e3a8a; }
@@ -31,36 +31,29 @@
         .card { background: var(--bg-card); padding: 12px; border-radius: 8px; border-left: 4px solid var(--accent); margin-bottom: 10px; }
         .dansou-mark { color: #ff00ff; font-weight: bold; font-size: 11px; margin: 8px 0; border-top: 1px dashed #ff00ff; padding-top: 4px; }
         .ana-mark { color: #fff; background: var(--danger); padding: 2px 5px; border-radius: 3px; font-size: 10px; margin-left: 5px; font-weight: bold; }
-        .bakuan-mark { color: #000; background: var(--warn); padding: 2px 5px; border-radius: 3px; font-size: 10px; margin-left: 5px; font-weight: bold; animation: blink 1s infinite; }
-        @keyframes blink { 0% {opacity: 1;} 50% {opacity: 0.5;} 100% {opacity: 1;} }
+        .jiku-label { background: var(--danger); color: white; padding: 2px 4px; border-radius: 3px; font-size: 10px; margin-right: 5px; }
 
         .bar-row { margin-bottom: 8px; }
         .bar-info { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px; }
         .bar-bg { width: 100%; height: 8px; background: #000; border-radius: 4px; overflow: hidden; }
         .bar-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #60a5fa); transition: 0.4s; }
         .bar-fill.ana { background: linear-gradient(90deg, #f59e0b, #ef4444); }
-        .jiku-label { background: var(--danger); color: white; padding: 2px 4px; border-radius: 3px; font-size: 10px; margin-right: 5px; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="panel">
-        <div class="section-title">Race Info</div>
+        <div class="section-title">Race Settings</div>
         <div class="grid-3">
             <select id="course">
-                <optgroup label="地方競馬 (NAR)">
-                    <option>園田</option><option>船橋</option><option>大井</option><option>川崎</option><option>浦和</option>
-                    <option>盛岡</option><option>金沢</option><option>高知</option><option>佐賀</option>
-                </optgroup>
-                <optgroup label="中央競馬 (JRA)">
-                    <option>東京</option><option>中山</option><option>中京</option><option>京都</option><option>阪神</option>
-                </optgroup>
+                <option>園田</option><option>船橋</option><option>大井</option><option>川崎</option><option>浦和</option>
+                <option>東京</option><option>中山</option><option>中京</option><option>京都</option><option>阪神</option>
             </select>
             <select id="surface">
                 <option>ダート</option><option>芝</option>
             </select>
-            <input type="number" id="dist" placeholder="距離(m)" value="1230">
+            <input type="number" id="dist" placeholder="距離(m)" value="1200">
         </div>
         <div class="grid-2">
             <select id="dir">
@@ -72,24 +65,24 @@
             </select>
         </div>
 
-        <div class="section-title">Analysis Options</div>
+        <div class="section-title">Mode Selection</div>
         <div class="btn-group">
             <button id="btnA" class="tgl" onclick="toggle('A')">1人気消し</button>
             <button id="btnW" class="tgl" onclick="toggle('W')">穴軸モード</button>
         </div>
 
-        <textarea id="raw" placeholder="ここに全データを貼り付け"></textarea>
-        <button id="execBtn" class="exec-btn" onclick="run()">🚀 激走馬抽出・買い目生成</button>
+        <textarea id="raw" placeholder="馬番 名前 人気 オッズ 指数 を貼り付け"></textarea>
+        <button id="execBtn" class="exec-btn" onclick="run()">🚀 分析開始・買い目生成</button>
     </div>
 
     <div id="res-area" style="display:none;">
         <div class="card" style="border-left-color: var(--success);">
             <div id="res-header" style="font-weight:bold; font-size:12px; color:var(--muted); margin-bottom:5px;"></div>
-            <div class="section-title" style="color:#fff">【AI推奨買い目：V30.0 Alpha】</div>
+            <div class="section-title" style="color:#fff">【AI推奨買い目：Standard First】</div>
             <div id="bet-output" style="white-space: pre-wrap; font-family: monospace; font-size: 13px;"></div>
         </div>
         <div class="card" style="border-left-color: #ff00ff;">
-            <div class="section-title" style="color:#ff00ff">【全頭指数ランキング / 波乱検知】</div>
+            <div class="section-title" style="color:#ff00ff">【ランキング / 断層分析】</div>
             <div id="graph-output"></div>
         </div>
     </div>
@@ -107,15 +100,14 @@
         const btn = document.getElementById('execBtn');
         if(!rawInput) { alert("データを入力してください"); return; }
         
-        btn.innerText = "⏳ 潜伏激走馬を分析中...";
+        btn.innerText = "⏳ 実力馬を精密分析中...";
 
         setTimeout(() => {
             try {
-                const condVal = document.getElementById('cond').value;
                 const condLabel = document.getElementById('cond').options[document.getElementById('cond').selectedIndex].text;
-                const isRough = (condVal === 'heavy' || condVal === 'bad');
+                const isRough = (document.getElementById('cond').value === 'heavy' || document.getElementById('cond').value === 'bad');
 
-                // --- V30.0 超堅牢パースエンジン ---
+                // --- 鉄壁のデータパース ---
                 const lines = rawInput.split('\n').filter(l => l.trim().length > 3);
                 let hList = [];
 
@@ -133,45 +125,46 @@
                     const odds = numVals.find(n => n > 1.0 && n < 1000 && n !== pop) || 10.0;
                     const rScore = numVals.find(n => n >= 30 && n <= 95) || 55.0;
 
-                    // 【精度向上：人気との乖離と馬場適性の融合】
-                    // 重馬場なら期待値係数を上げ、良馬場なら格を重視
-                    let stabilityAdj = (20 / (pop + 1.5));
-                    let potentialAdj = (odds / pop > 1.8) ? 1.5 : 0; // 期待値が高い馬への強力な加点
-                    const score = parseFloat((rScore + stabilityAdj + potentialAdj).toFixed(5));
-                    const ev = score * Math.sqrt(odds) * (isRough ? 1.6 : 1.1);
+                    // 【最重要：実力重視スコアリング】
+                    // 通常モードでは「人気」の配分を上げ、1番人気の能力を正当に評価する
+                    let popBias = (25 / (pop + 1.2));
+                    let favoriteBonus = (pop === 1 && odds < 2.5) ? 8 : 0; // 圧倒的1番人気への強力補正
+                    
+                    const score = parseFloat((rScore + popBias + favoriteBonus).toFixed(5));
+                    const ev = score * Math.sqrt(odds) * (isRough ? 1.4 : 1.0);
 
                     hList.push({ no, name, pop, odds, score, ev, raw: rScore });
                 });
 
-                if(hList.length < 5) throw new Error("馬データが不足しています");
+                if(hList.length < 5) throw new Error("解析失敗：馬のデータが足りません");
 
+                // スコア順（実力順）にソート
                 hList.sort((a,b) => b.score - a.score);
 
-                // --- 軸選定：V30.0 アルファ・ロジック ---
+                // --- 軸選定 ---
                 let jiku;
-                let jikuPool = [...hList];
-                if(modeA) jikuPool = jikuPool.filter(h => h.pop !== 1);
+                let pool = [...hList];
+                if(modeA) pool = pool.filter(h => h.pop !== 1);
                 
-                // 1番人気の信頼度判定（2位との差が少ない場合は波乱軸を採用）
-                const gapTop = hList[0].score - hList[1].score;
-                if (modeW || (isRough && gapTop < 1.0)) {
-                    // 期待値が最大で、かつある程度実力(Score)がある馬を軸にする
-                    jiku = jikuPool.slice(0, 8).sort((a,b) => b.ev - a.ev)[0];
+                if(modeW) {
+                    // 穴軸時：期待値が最も高く、かつ実力が中位以上の馬
+                    jiku = pool.slice(0, 10).sort((a,b) => b.ev - a.ev)[0];
                 } else {
-                    jiku = jikuPool[0];
+                    // 通常時：指数最高馬（実力馬を軸に固定。これで12番などが軸になる）
+                    jiku = pool[0];
                 }
 
-                // 【スロット選定：実力馬と中穴馬⑫番を確実に拾う】
+                // 【相手選定：実力馬3頭 ＋ 穴馬2頭の黄金比】
                 const others = hList.filter(h => h.no !== jiku.no);
                 
-                // 1. 実力馬枠（指数トップから2頭）
-                const teppan = [...others].sort((a,b) => b.score - a.score).slice(0, 2);
+                // 1. 実力馬枠（指数上位。これで12-7-6のような決着を逃さない）
+                const teppan = [...others].sort((a,b) => b.score - a.score).slice(0, 3);
                 
-                // 2. 爆撃馬枠（中穴層 10-30倍の中から期待値最大を2頭抽出：ここで⑫番を捕獲）
+                // 2. 伏兵枠（期待値が高い馬を抑えに）
                 const bakugeki = others.filter(h => !teppan.some(c => c.no === h.no))
-                                       .sort((a,b) => b.ev - a.ev).slice(0, 3);
+                                       .sort((a,b) => b.ev - a.ev).slice(0, 2);
 
-                const aite5 = [...teppan, ...bakugeki].slice(0, 5);
+                const aite5 = [...teppan, ...bakugeki];
                 const aite4 = aite5.slice(0, 4);
 
                 // --- 結果出力 ---
@@ -189,40 +182,37 @@
 
                 betHtml += `【3連単フォーメーション】\n`;
                 betHtml += ` 1着: ${jiku.no}\n`;
-                betHtml += ` 2着: ${teppan.map(h=>h.no).join(', ')}\n`;
+                betHtml += ` 2着: ${teppan.slice(0,2).map(h=>h.no).join(', ')}\n`;
                 betHtml += ` 3着: ${aite5.map(h=>h.no).join(', ')}\n\n`;
 
                 betHtml += `【推奨3連単マルチ】\n`;
-                betHtml += ` 🔥 的中重視(36点): ${jiku.no} ↔ ${aite4.map(h=>h.no).join(', ')}\n`;
-                betHtml += ` 🎯 高配狙い(60点): ${jiku.no} ↔ ${aite5.map(h=>h.no).join(', ')}\n\n`;
+                betHtml += ` 🔥 36点(相手4頭): ${jiku.no} ↔ ${aite4.map(h=>h.no).join(', ')}\n`;
+                betHtml += ` 🎯 60点(相手5頭): ${jiku.no} ↔ ${aite5.map(h=>h.no).join(', ')}\n\n`;
                 
                 betHtml += `【馬連・ワイド流し】\n 軸: ${jiku.no} ↔ 相手: ${aite5.map(h=>h.no).join(', ')}`;
                 
                 document.getElementById('bet-output').innerHTML = betHtml;
 
-                // ランキング
+                // グラフ
                 const maxS = Math.max(...hList.map(h => h.score));
                 let graphHtml = "";
-                hList.sort((a,b) => b.score - a.score).forEach((h, i) => {
+                hList.forEach((h, i) => {
                     const diff = i > 0 ? (hList[i-1].score - h.score).toFixed(2) : 0;
-                    if (i > 0 && diff >= 0.7) {
-                        graphHtml += `<div class="dansou-mark">⚠️ 断層検知 (${diff}pt差)</div>`;
-                    }
-                    const isM = aite5.some(a => a.no === h.no && a.pop >= 4);
+                    if (i > 0 && diff >= 0.8) graphHtml += `<div class="dansou-mark">⚠️ 指数断層 (${diff}pt差)</div>`;
+                    
                     let tag = "";
-                    if (h.odds >= 25 && h.score >= (hList[0].score * 0.85)) tag = '<span class="bakuan-mark">!!激走注意!!</span>';
-                    else if (isM) tag = '<span class="ana-mark">特注馬</span>';
+                    if (h.odds >= 15 && h.score >= (hList[0].score * 0.9)) tag = '<span class="ana-mark">狙い目</span>';
 
-                    const isJ = h.no === jiku.no ? '<span class="jiku-label">推奨軸</span>' : '';
-                    graphHtml += `<div class="bar-row"><div class="bar-info"><span>${isJ}${i+1}. ${h.no} ${h.name} <small>${h.odds}倍</small>${tag}</span><span>${h.score.toFixed(1)}pt</span></div><div class="bar-bg"><div class="bar-fill ${tag!==''?'ana':''}" style="width:${(h.score/maxS*100)}%"></div></div></div>`;
+                    const isJiku = h.no === jiku.no ? '<span class="jiku-label">推奨軸</span>' : '';
+                    graphHtml += `<div class="bar-row"><div class="bar-info"><span>${isJiku}${i+1}. ${h.no} ${h.name} <small>${h.odds}倍</small>${tag}</span><span>${h.score.toFixed(1)}pt</span></div><div class="bar-bg"><div class="bar-fill ${tag!==''?'ana':''}" style="width:${(h.score/maxS*100)}%"></div></div></div>`;
                 });
                 document.getElementById('graph-output').innerHTML = graphHtml;
                 document.getElementById('res-area').style.display = 'block';
-                btn.innerText = "🚀 激走馬抽出・買い目生成";
+                btn.innerText = "🚀 分析開始・買い目生成";
 
             } catch (e) {
-                btn.innerText = "🚀 激走馬抽出・買い目生成";
-                alert("データの解析に失敗しました。コピー内容を確認してください。");
+                btn.innerText = "🚀 分析開始・買い目生成";
+                alert("データの解析に失敗しました。貼り付ける範囲を確認してください。");
             }
         }, 100);
     }
