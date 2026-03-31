@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI競馬分析 V28.0 Predator Dynamic</title>
+    <title>AI競馬分析 V29.0 Predator Tactical</title>
     <style>
         :root {
             --bg-main: #020617; --bg-card: #1e293b; --bg-input: #0f172a;
@@ -80,8 +80,8 @@
             <button id="btnW" class="tgl" onclick="toggle('W')">穴軸モード</button>
         </div>
 
-        <textarea id="raw" placeholder="ここに全データを貼り付け"></textarea>
-        <button id="execBtn" class="exec-btn" onclick="run()">🚀 馬場・能力 究極分析</button>
+        <textarea id="raw" placeholder="ここにデータを貼り付け"></textarea>
+        <button id="execBtn" class="exec-btn" onclick="run()">🚀 究極分析・フル買い目生成</button>
     </div>
 
     <div id="res-area" style="display:none;">
@@ -105,9 +105,9 @@
     }
 
     function run() {
-        const raw = document.getElementById('raw').value.trim();
+        const rawInput = document.getElementById('raw').value.trim();
         const btn = document.getElementById('execBtn');
-        if(!raw) { alert("データを入力してください"); return; }
+        if(!rawInput) { alert("データを入力してください"); return; }
         
         btn.innerText = "⏳ 演算中...";
 
@@ -120,86 +120,88 @@
                 const surf = document.getElementById('surface').value;
                 const dist = document.getElementById('dist').value || "---";
 
-                // --- V28.0 馬場連動解析エンジン ---
-                const lines = raw.split('\n').filter(l => l.trim().length > 3);
+                // --- 鉄壁のデータ解析エンジン ---
+                const lines = rawInput.split('\n').filter(l => l.trim().length > 3);
                 let hList = [];
 
                 lines.forEach((line) => {
-                    const clean = line.replace(/[　\t,()（）:：\-+]/g, ' ').replace(/倍|人気|人|pt/g, '').trim();
-                    const parts = clean.split(/\s+/);
-                    const nums = clean.match(/\d+(\.\d+)?/g);
+                    const normalized = line.replace(/[　\t,()（）:：\-+]/g, ' ').replace(/倍|人気|人|pt/g, '').trim();
+                    const nums = normalized.match(/\d+(\.\d+)?/g);
                     if(!nums || nums.length < 2) return;
 
                     const no = nums[0];
-                    const name = parts[1];
+                    const parts = normalized.split(/\s+/);
+                    const name = parts[1] || "馬" + no;
                     const numVals = nums.map(v => parseFloat(v));
                     
                     const pop = numVals.find(n => n >= 1 && n <= 22) || 10;
                     const odds = numVals.find(n => n > 1.0 && n < 1000 && n !== pop) || 10.0;
                     const rScore = numVals.find(n => n >= 30 && n <= 95) || 55.0;
 
-                    // 【最重要：馬場適性スコアリング】
-                    // 馬場が荒れる(heavy/bad)ほど、指数の高い穴馬への補正を2倍にする
-                    let condAdj = isRough ? (odds / 8) : (5 / (pop + 1));
-                    let baseScore = rScore * 1.05 + condAdj;
-                    
+                    // 指数補正
+                    let baseScore = rScore * 1.05 + (18 / (pop + 2.5)) + (odds/pop > 2.2 ? 1.2 : 0);
                     const score = parseFloat(baseScore.toFixed(5));
                     const ev = score * Math.sqrt(odds) * (isRough ? 1.5 : 1.1);
 
                     hList.push({ no, name, pop, odds, score, ev, raw: rScore });
                 });
 
-                if(hList.length < 4) throw new Error("データの読み取り失敗");
+                if(hList.length < 4) throw new Error("解析失敗");
 
-                // スコア順ソート
                 hList.sort((a,b) => b.score - a.score);
 
-                // --- 軸選定ロジック（馬場連動） ---
+                // 推奨軸の決定
                 let jiku;
-                let jikuPool = [...hList];
-                if(modeA) jikuPool = jikuPool.filter(h => h.pop !== 1);
-                
+                let pool = [...hList];
+                if(modeA) pool = pool.filter(h => h.pop !== 1);
                 if(modeW || isRough) {
-                    // 波乱時/穴モード：期待値(EV)重視
-                    jiku = jikuPool.slice(0, 10).sort((a,b) => b.ev - a.ev)[0];
+                    jiku = pool.slice(0, 10).sort((a,b) => b.ev - a.ev)[0];
                 } else {
-                    // 良馬場：的中率(Score)重視
-                    jiku = jikuPool[0];
+                    jiku = pool[0];
                 }
 
-                // 【最強ハイブリッド選定：実力と穴を強制ミックス】
+                // 【戦略的相手選定：鉄板実力馬3頭 ＋ 爆撃穴馬2頭】
                 const others = hList.filter(h => h.no !== jiku.no);
-                
-                // 1. 実力馬枠（指数上位2〜3頭）
-                const coreAite = [...others].sort((a,b) => b.score - a.score).slice(0, 3);
-                
-                // 2. 爆撃馬枠（残りから期待値EV上位2頭）
+                const coreAite = [...others].sort((a,b) => b.score - a.score).slice(0, 3); // 8番、10番クラス
                 const valueAite = others.filter(h => !coreAite.some(c => c.no === h.no))
-                                       .sort((a,b) => b.ev - a.ev).slice(0, 2);
+                                       .sort((a,b) => b.ev - a.ev).slice(0, 2); // 4番クラス
 
                 const aite5 = [...coreAite, ...valueAite];
                 const aite4 = aite5.slice(0, 4);
 
-                // 出力
+                // --- 買い目出力 ---
                 document.getElementById('res-header').innerText = `${course} ${surf}${dist}m (${condLabel})`;
                 let betHtml = `【推奨軸】 ${jiku.no} (${jiku.name}) ${jiku.pop}人/${jiku.odds}倍\n\n`;
+                
+                betHtml += `【3連複フォーメーション】\n`;
+                betHtml += ` 1頭目: ${jiku.no}\n`;
+                betHtml += ` 2頭目: ${coreAite.map(h=>h.no).join(', ')}\n`;
+                betHtml += ` 3頭目: ${aite5.map(h=>h.no).join(', ')}\n\n`;
+
+                betHtml += `【3連単フォーメーション】\n`;
+                betHtml += ` 1着: ${jiku.no}\n`;
+                betHtml += ` 2着: ${coreAite.slice(0,2).map(h=>h.no).join(', ')}\n`;
+                betHtml += ` 3着: ${aite5.map(h=>h.no).join(', ')}\n\n`;
+
                 betHtml += `【推奨3連単マルチ】\n`;
-                betHtml += `🔥 的中重視(36点): ${jiku.no} ↔ ${aite4.map(h=>h.no).join(', ')}\n`;
-                betHtml += `🎯 波乱狙い(60点): ${jiku.no} ↔ ${aite5.map(h=>h.no).join(', ')}\n\n`;
-                betHtml += `【推奨馬連・ワイド】\n   ${jiku.no} ↔ ${aite5.map(h=>h.no).join(', ')}`;
+                betHtml += ` 🔥 36点(相手4頭): ${jiku.no} ↔ ${aite4.map(h=>h.no).join(', ')}\n`;
+                betHtml += ` 🎯 60点(相手5頭): ${jiku.no} ↔ ${aite5.map(h=>h.no).join(', ')}\n\n`;
+                
+                betHtml += `【馬連・ワイド・3連複1頭軸】\n`;
+                betHtml += ` 軸: ${jiku.no} ↔ 相手: ${aite5.map(h=>h.no).join(', ')}`;
                 
                 document.getElementById('bet-output').innerHTML = betHtml;
 
-                // グラフ
+                // ランキング
                 const maxS = Math.max(...hList.map(h => h.score));
                 let graphHtml = "";
-                hList.forEach((h, i) => {
-                    if (i > 0 && (hList[i-1].score - h.score) >= 0.8) {
+                hList.sort((a,b) => b.score - a.score).forEach((h, i) => {
+                    if (i > 0 && (hList[i-1].score - h.score) >= 0.7) {
                         graphHtml += `<div class="dansou-mark">⚠️ 指数断層 (${(hList[i-1].score - h.score).toFixed(2)}pt差)</div>`;
                     }
                     const isM = aite5.some(a => a.no === h.no && a.pop >= 5);
                     let tag = "";
-                    if (h.odds >= 30 && h.score >= (hList[0].score * 0.85)) tag = '<span class="bakuan-mark">!!爆穴!!</span>';
+                    if (h.odds >= 30 && h.score >= (hList[0].score * 0.86)) tag = '<span class="bakuan-mark">!!爆穴!!</span>';
                     else if (isM) tag = '<span class="ana-mark">狙い目</span>';
 
                     const isJ = h.no === jiku.no ? '<span class="jiku-label">推奨軸</span>' : '';
@@ -207,10 +209,10 @@
                 });
                 document.getElementById('graph-output').innerHTML = graphHtml;
                 document.getElementById('res-area').style.display = 'block';
-                btn.innerText = "🚀 馬場・能力 究極分析";
+                btn.innerText = "🚀 究極分析・フル買い目生成";
 
             } catch (e) {
-                btn.innerText = "🚀 馬場・能力 究極分析";
+                btn.innerText = "🚀 究極分析・フル買い目生成";
                 alert("解析エラー：データの形式を確認してください。");
             }
         }, 100);
