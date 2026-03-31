@@ -2,77 +2,83 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>AI競馬分析 Master Engine V4</title>
+    <title>AI競馬分析 Master Engine V5</title>
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --accent: #db2777; --text: #f8fafc; }
+        :root { --bg: #0f172a; --card: #1e293b; --accent: #2563eb; --text: #f8fafc; }
         body { background: var(--bg); color: var(--text); font-family: sans-serif; padding: 10px; }
         .container { max-width: 500px; margin: auto; }
         .panel { background: var(--card); padding: 15px; border-radius: 8px; border: 1px solid #334155; }
-        textarea { width: 100%; height: 180px; background: #0b1120; color: #fff; border: 1px solid #475569; border-radius: 4px; padding: 10px; font-family: monospace; font-size: 13px; }
-        .exec-btn { width: 100%; padding: 15px; background: var(--accent); color: white; border: none; font-weight: bold; font-size: 16px; border-radius: 5px; cursor: pointer; margin-top: 10px; }
-        #res-area { margin-top: 20px; display: none; }
-        .card { background: #1e293b; padding: 15px; border-radius: 8px; border-left: 4px solid var(--accent); margin-bottom: 10px; }
-        .ana { color: #fbbf24; font-weight: bold; }
+        .btn-group { display: flex; gap: 5px; margin: 10px 0; }
+        .tgl { flex: 1; padding: 10px; background: #334155; border: none; border-radius: 4px; color: #94a3b8; font-weight: bold; cursor: pointer; }
+        .tgl.active { background: var(--accent); color: white; }
+        textarea { width: 100%; height: 150px; background: #0b1120; color: #fff; border: 1px solid #475569; padding: 10px; font-size: 12px; }
+        .exec-btn { width: 100%; padding: 15px; background: var(--accent); color: white; border: none; font-weight: bold; border-radius: 5px; cursor: pointer; margin-top: 10px; }
+        .res-card { background: #1e293b; padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid #334155; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        th { color: #94a3b8; text-align: left; }
+        .divider { border-top: 2px solid #ef4444; margin: 10px 0; padding-top: 5px; color: #ef4444; font-weight: bold; }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="panel">
-        <div style="font-size:12px; margin-bottom:5px; color:#94a3b8;">出馬表をコピペしてください (馬番, オッズ, 人気 の順が望ましい)</div>
-        <textarea id="raw" placeholder="例: 14 9.9 5&#10;10 6.2 3&#10;9 62.7 10"></textarea>
-        <button class="exec-btn" onclick="runAnalysis()">🔥 荒れるレースを攻略する</button>
+        <div class="btn-group">
+            <button id="btnA" class="tgl" onclick="toggle('A')">1人気消し</button>
+            <button id="btnW" class="tgl" onclick="toggle('W')">穴軸モード</button>
+        </div>
+        <textarea id="raw" placeholder="馬番・人気・オッズを含むデータをコピペ"></textarea>
+        <button class="exec-btn" onclick="runAnalysis()">🚀 分析開始</button>
     </div>
 
-    <div id="res-area">
-        <div class="card">
-            <div id="bet-output" style="font-family: monospace; white-space: pre-wrap;"></div>
-        </div>
+    <div id="res-area" class="res-card" style="display:none;">
+        <div id="bet-output"></div>
     </div>
 </div>
 
 <script>
+    let modeA = false, modeW = false;
+    function toggle(m) {
+        if(m==='A') { modeA = !modeA; document.getElementById('btnA').classList.toggle('active'); }
+        if(m==='W') { modeW = !modeW; document.getElementById('btnW').classList.toggle('active'); }
+    }
+
     function runAnalysis() {
-        const raw = document.getElementById('raw').value;
+        const lines = document.getElementById('raw').value.split('\n');
         let hList = [];
 
-        raw.split('\n').forEach(line => {
+        lines.forEach(line => {
             const nums = line.match(/\d+(\.\d+)?/g);
             if (!nums || nums.length < 3) return;
 
-            // 数値から「馬番」「オッズ」「人気」を特定
+            // スクショの形式に基づき、行内の数字から特定
+            // [6] [コスモグッドラック] [1] [2.8] [56.0] [+5]
             let no = parseInt(nums[0]);
-            let odds = parseFloat(nums[1]);
-            let pop = parseInt(nums[2]);
+            let pop = parseInt(nums[1]); 
+            let odds = parseFloat(nums[2]);
 
-            // 【荒れるレース攻略ロジック】
-            // 人気(pop)に対してオッズ(odds)が高い＝期待値が高いと判断
-            // log(odds)を使うことで高額配当馬の過剰な数値化を抑えつつ、
-            // 穴馬のポテンシャルを指数に反映させる
-            let score = (100 / pop) + (Math.log10(odds) * 20);
-            
-            // 9番人気以下の馬にはボーナス指数を加算
-            if(pop >= 9) score += 15;
+            // 実績重視のスコア計算（穴を狙いすぎない設定）
+            let score = (100 / (odds * 0.5)) + (20 / pop);
+            if(modeW) score = (odds * 0.2) + (50 / pop);
 
             hList.push({ no, odds, pop, score });
         });
 
-        // スコア順に並び替え
+        if(modeA) hList = hList.filter(h => h.pop !== 1);
         hList.sort((a, b) => b.score - a.score);
 
-        // 買い目生成
-        let top3 = hList.slice(0, 3);
-        let allCandidates = hList.slice(0, 6);
-
-        let res = `【指数トップ3・攻略候補】\n`;
-        hList.slice(0, 5).forEach((h, i) => {
-            res += `${i+1}位: ${h.no}番 (${h.pop}番人気/${h.odds}倍)\n`;
-        });
-
-        res += `\n【推奨買い目 (荒れ狙い)】\n`;
-        res += `3連複(軸1頭): ${top3[0].no} - ${top3.slice(1).map(h=>h.no).join(',')} - ${allCandidates.map(h=>h.no).join(',')}\n\n`;
-        res += `3連単マルチ(軸2頭): ${top3[0].no}, ${top3[1].no} ⇔ ${allCandidates.map(h=>h.no).join(',')}`;
+        let res = `<b>【推奨軸馬】 ${hList[0].no}番</b>\n`;
+        res += `<table><tr><th>馬番</th><th>人気</th><th>オッズ</th></tr>`;
         
-        document.getElementById('bet-output').innerText = res;
+        hList.forEach((h, i) => {
+            // オッズや人気の急激な変化（断層）をチェック
+            if (i > 0 && (hList[i-1].odds / h.odds > 2 || h.pop - hList[i-1].pop > 3)) {
+                res += `<tr><td colspan="3" class="divider">▼ ここに断層あり</td></tr>`;
+            }
+            res += `<tr><td>${h.no}番</td><td>${h.pop}番人気</td><td>${h.odds}倍</td></tr>`;
+        });
+        res += `</table>`;
+        
+        document.getElementById('bet-output').innerHTML = res;
         document.getElementById('res-area').style.display = 'block';
     }
 </script>
