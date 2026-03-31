@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI競馬分析 V47.0 Synchronous Ultimate</title>
+    <title>AI競馬分析 V48.0 Realistic Sniper</title>
     <style>
         :root {
             --bg-main: #020617; --bg-card: #1e293b; --bg-input: #0f172a;
@@ -77,8 +77,7 @@
         </div>
 
         <textarea id="raw" placeholder="馬番 名前 人気 オッズ 指数 を貼り付け"></textarea>
-        <!-- 即時実行でフリーズを完全回避 -->
-        <button class="exec-btn" onclick="run()">🚀 断層解析・広域買い目生成</button>
+        <button class="exec-btn" onclick="run()">🚀 現実的分析・買い目生成</button>
     </div>
 
     <div id="res-area" style="display:none;">
@@ -87,11 +86,11 @@
         <div id="result-content" style="display:none;">
             <div class="card" style="border-left-color: var(--success);">
                 <div id="res-header" style="font-weight:bold; font-size:12px; color:var(--muted); margin-bottom:5px;"></div>
-                <div class="section-title" style="color:#fff">【AI推奨：的中重視・広域フォーメーション】</div>
+                <div class="section-title" style="color:#fff">【AI推奨：的中重視リアルフォーメーション】</div>
                 <div id="bet-output" style="white-space: pre-wrap; font-family: monospace; font-size: 13px; line-height: 1.4;"></div>
             </div>
             <div class="card" style="border-left-color: #ff00ff;">
-                <div class="section-title" style="color:#ff00ff">【高精度能力ランキング / 断層キーマン抽出】</div>
+                <div class="section-title" style="color:#ff00ff">【純粋能力ランキング / 断層キーマン抽出】</div>
                 <div id="graph-output"></div>
             </div>
         </div>
@@ -135,9 +134,12 @@
             const selCond = document.getElementById('cond').value;
             const condLabel = document.getElementById('cond').options[document.getElementById('cond').selectedIndex].text;
             const isRough = (selCond === 'heavy' || selCond === 'bad');
-            const distValStr = document.getElementById('dist').value || "---";
+            
+            // 距離バグ修正
+            const distInput = document.getElementById('dist');
+            const distValStr = distInput ? distInput.value : "---";
 
-            // --- 遅延なし！即時実行パースエンジン ---
+            // --- 鉄壁パースエンジン ---
             const lines = rawInput.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 2);
             let hList =[];
 
@@ -154,51 +156,53 @@
                 let nums = parts.slice(2).map(v => parseFloat(v)).filter(v => !isNaN(v));
                 if (nums.length < 2) continue;
 
-                // 値の取得
                 let pop = parseInt(nums[0]) || 10;
                 let odds = parseFloat(nums[1]) || 15.0;
                 let rScore = nums.length > 2 ? parseFloat(nums[2]) : 50.0;
 
-                // 【指示3：初期ベーススコア】
-                let baseScore = rScore + (20 / (pop + 1.5));
+                // 【修正】インフレを防ぐ「加減算ロジック」に変更
+                let baseScore = rScore + (15 / (pop + 1.0));
 
-                // 【指示1：軸馬の再定義】
+                // 過剰人気割引（掛け算ではなく減算）
                 if (pop === 1 && odds <= 2.9) {
-                    baseScore *= 0.8; // 1番人気の過剰人気を20%割引
+                    baseScore -= 1.0; 
                 }
+                // 美味しいオッズへの微加点
                 if (odds >= 5.0 && odds <= 15.0) {
-                    baseScore *= 1.2; // 4〜7番人気ゾーンを穴軸として優先評価
+                    baseScore += 1.5; 
                 }
 
-                // 【指示3：道悪での強制補正】
+                // 道悪での加減算
                 if (isRough) {
                     if (odds >= 10.0 && odds <= 30.0) {
-                        baseScore *= 1.5; // 道悪巧者とみなし1.5倍に引き上げ
+                        baseScore += 2.0; // 隠れ道悪巧者
                     } else if (pop <= 3) {
-                        baseScore *= 0.9; // 良馬場スピード馬を1ランク下げる
+                        baseScore -= 1.0; // 良馬場スピード馬の割引
                     }
                 }
 
-                let score = parseFloat(baseScore.toFixed(3));
-                let ev = score * Math.pow(odds, 0.45);
+                let score = parseFloat(baseScore.toFixed(2));
+
+                // 【修正】非現実的な大穴（190倍など）を足切りするキャップ
+                let cappedOdds = Math.min(odds, 60.0); // 最大60倍までしか評価しない
+                let ev = score * Math.log10(cappedOdds + 2.0); // 対数でマイルドに
 
                 hList.push({ no, name, pop, odds, score, ev, raw: rScore, isKeyman: false, isSuperKeyman: false, isHimoAna: false });
             }
 
             const totalHorses = hList.length;
             if(totalHorses < 4) {
-                throw new Error("解析できる馬のデータが少なすぎます。コピー範囲を広げてください。");
+                throw new Error("解析できる馬のデータが少なすぎます。");
             }
 
-            // スコア順にソート
+            // スコア順にソート（実力が高い馬が素直に上に来る）
             hList.sort((a,b) => b.score - a.score);
 
-            // 【指示2：断層ロジックの強化】
+            // 断層ロジック（ランキング右側の表示用）
             for(let i = 1; i < hList.length; i++) {
                 let diff = hList[i-1].score - hList[i].score;
-                if (diff >= 2.0) {
+                if (diff >= 1.5) {
                     hList[i-1].isKeyman = true;
-                    // 中位(5〜8位)の断層のすぐ上をスーパーキーマン化
                     if (i >= 4 && i <= 7) {
                         hList[i-1].isSuperKeyman = true;
                     }
@@ -206,67 +210,59 @@
             }
 
             // --- 軸馬の選定 ---
-            let pool =[...hList];
+            let pool = [...hList];
             if (modeA) pool = pool.filter(h => h.pop !== 1);
             if (pool.length === 0) pool = [...hList];
             
             let jiku;
             if (modeW) {
-                jiku = [...pool].sort((a,b) => b.ev - a.ev)[0];
+                // 穴軸モード：EV最大だが、50倍以上の超大穴は危険なので避ける
+                let holePool = pool.filter(h => h.odds <= 50.0);
+                if(holePool.length === 0) holePool = pool;
+                jiku = holePool.sort((a,b) => b.ev - a.ev)[0];
             } else {
+                // 通常モード：スコア（実力）1位を素直に選ぶ
                 jiku = pool[0];
             }
 
-            // --- 【指示4：ヒモ抜け防止】相手選定 ---
+            // --- 相手選定（非現実的な馬券にならないように） ---
             const others = hList.filter(h => h.no !== jiku.no);
             
-            // 2着候補（本線）: 指数上位 + キーマン強制追加
+            // 実力枠（2〜3着候補）：スコア順に3頭（堅実なヒモ）
             let coreAite = [...others].sort((a,b) => b.score - a.score).slice(0, 3);
-            others.forEach(h => {
-                if ((h.isKeyman || h.isSuperKeyman) && !coreAite.some(c => c.no === h.no)) {
-                    coreAite.push(h);
-                }
-            });
-
-            // 3着候補（ヒモ穴強制追加）
-            // スコア下半分から、外枠(馬番が総頭数の半分より外)を2頭抽出
-            let lowerHalf = [...others].sort((a,b) => a.score - b.score).slice(0, Math.ceil(others.length / 2));
-            let outFrame = lowerHalf.filter(h => parseInt(h.no) > totalHorses / 2);
             
-            let himoAna = outFrame.slice(0, 2);
-            // 足りなければ下位の期待値上位で補う
-            if (himoAna.length < 2) {
-                let remain = lowerHalf.filter(h => !himoAna.some(a => a.no === h.no)).sort((a,b) => b.ev - a.ev);
-                while(himoAna.length < 2 && remain.length > 0) {
-                    himoAna.push(remain.shift());
-                }
-            }
-            himoAna.forEach(h => h.isHimoAna = true);
-
-            // 3着候補の統合
+            // 穴枠：断層キーマンやEV上位を追加
             let aite3rd = [...coreAite];
-            himoAna.forEach(h => {
-                if (!aite3rd.some(a => a.no === h.no)) aite3rd.push(h);
+            others.forEach(h => {
+                if ((h.isKeyman || h.isSuperKeyman) && !aite3rd.some(a => a.no === h.no)) {
+                    aite3rd.push(h);
+                }
             });
-            
-            // 5頭に満たない場合は期待値上位で枠を埋める
+
+            // 足りなければEV上位で補完（最大6頭まで）
             let valueAite = others.filter(h => !aite3rd.some(a => a.no === h.no)).sort((a,b) => b.ev - a.ev);
-            while(aite3rd.length < 5 && valueAite.length > 0) {
+            while(aite3rd.length < 6 && valueAite.length > 0) {
                 aite3rd.push(valueAite.shift());
             }
 
             const aite5 = aite3rd.slice(0, 5);
-            const aite4 = aite5.slice(0, 4);
+            const aite4 = aite3rd.slice(0, 4);
+
+            // --- 【新搭載】資金極少・1点/2点買い ---
+            const solid1 = coreAite[0] || {no: '-'}; 
+            const solid2 = coreAite[1] || {no: '-'}; 
+            // 穴を一発狙う用（オッズ10倍以上の馬を拾う）
+            const hole1 = aite3rd.filter(h => h.odds >= 10.0)[0] || aite3rd[2] || {no: '-'};
 
             // --- 出力生成 ---
             document.getElementById('res-header').innerText = `${selCourse} ${distValStr}m (${condLabel}) / ${totalHorses}頭立て`;
             
             let betHtml = `【推奨軸 (1着固定)】 ${jiku.no} (${jiku.name}) ${jiku.pop}人/${jiku.odds}倍\n\n`;
             
-            let sk = hList.filter(h => h.isSuperKeyman).map(h => h.no).join(', ');
-            if (sk) {
-                betHtml += `🌟 高配当キーマン(2・3着厚め): ${sk}\n\n`;
-            }
+            betHtml += `【💸 資金極少！超厳選買い目】\n`;
+            betHtml += ` 🎯 3連単(1点): ${jiku.no} → ${solid1.no} → ${solid2.no}\n`;
+            betHtml += ` 💥 3連単(2点): ${jiku.no} → ${solid1.no} ↔ ${hole1.no}\n`;
+            betHtml += ` 💰 馬連/ワイド(1点): ${jiku.no} ↔ ${solid1.no}\n\n`;
 
             betHtml += `【的中重視・広域3連単フォーメーション】\n`;
             betHtml += ` 1着: ${jiku.no}\n`;
@@ -278,25 +274,25 @@
             betHtml += ` 2頭目: ${coreAite.map(h=>h.no).join(', ')}\n`;
             betHtml += ` 3頭目: ${aite3rd.map(h=>h.no).join(', ')}\n\n`;
 
-            betHtml += `【推奨3連単マルチ(参考)】\n`;
+            betHtml += `【推奨マルチ(参考)】\n`;
             betHtml += ` 🔥 36点: ${jiku.no} ↔ ${aite4.map(h=>h.no).join(', ')}\n`;
             betHtml += ` 🎯 60点: ${jiku.no} ↔ ${aite5.map(h=>h.no).join(', ')}\n`;
             
             document.getElementById('bet-output').innerHTML = betHtml;
 
             // --- ランキング表示 ---
-            const maxS = Math.max(...hList.map(h => h.score));
             let graphHtml = "";
+            const maxS = Math.max(...hList.map(h => h.score));
             hList.forEach((h, i) => {
-                const diff = i > 0 ? (hList[i-1].score - h.score).toFixed(2) : 0;
-                if (i > 0 && diff >= 2.0) {
+                let diff = i > 0 ? (hList[i-1].score - h.score).toFixed(2) : 0;
+                if (i > 0 && diff >= 1.5) {
                     graphHtml += `<div class="dansou-mark">⚠️ 指数断層 (${diff}pt差)</div>`;
                 }
                 
                 let tag = "";
                 if (h.isSuperKeyman) tag = '<span class="ana-mark" style="background:#f59e0b">超特注</span>';
                 else if (h.isKeyman) tag = '<span class="ana-mark" style="background:#3b82f6">断層上</span>';
-                else if (h.isHimoAna) tag = '<span class="ana-mark" style="background:#8b5cf6">ヒモ穴枠</span>';
+                else if (h.odds >= 15.0 && aite5.some(a => a.no === h.no)) tag = '<span class="ana-mark" style="background:#8b5cf6">ヒモ穴</span>';
 
                 const isJ = h.no === jiku.no ? '<span class="jiku-label">推奨軸</span>' : '';
                 graphHtml += `<div class="bar-row"><div class="bar-info"><span>${isJ}${i+1}. ${h.no} ${h.name} <small>${h.odds}倍</small>${tag}</span><span>${h.score.toFixed(1)}pt</span></div><div class="bar-bg"><div class="bar-fill ${tag!==''?'ana':''}" style="width:${(h.score/maxS*100)}%"></div></div></div>`;
@@ -308,7 +304,7 @@
 
         } catch (e) {
             resBox.style.display = 'block';
-            errBox.innerHTML = `❌ エラーが発生しました。<br>【原因】${e.message}<br>※データのコピー範囲を確認してください。`;
+            errBox.innerHTML = `❌ エラーが発生しました。<br>【原因】${e.message}`;
         }
     }
 </script>
