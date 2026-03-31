@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI競馬分析 V44.1 Straight Hybrid [DEBUG]</title> <!-- タイトル更新: バージョン番号を44.1に変更 -->
+    <title>AI競馬分析 V44.2 Straight Hybrid [DEBUG]</title> <!-- タイトル更新: バージョン番号を44.2に変更 -->
     <style>
         :root {
             --bg-main: #020617; --bg-card: #1e293b; --bg-input: #0f172a;
@@ -78,7 +78,7 @@
         </div>
 
         <textarea id="raw" placeholder="馬番 名前 人気 オッズ 指数 を貼り付け"></textarea>
-        <button id="execBtn" class="exec-btn" onclick="run()">🚀 究極ストレート分析・買い目生成</button>
+        <button id="execBtn" class="exec-btn">🚀 究極ストレート分析・買い目生成</button> <!-- onclick属性を削除 -->
     </div>
 
     <div id="res-area" style="display:none;">
@@ -107,57 +107,64 @@
         console.log("toggle() called. modeA:", modeA, "modeW:", modeW);
     }
 
-    function run() {
-        console.log("run() function called"); // run関数が呼ばれているか確認
-        const rawInput = document.getElementById('raw').value.trim();
-        const btn = document.getElementById('execBtn');
+    document.addEventListener('DOMContentLoaded', function() { // DOMContentLoadedイベントを使用
+        console.log("DOMContentLoaded event fired"); // イベント発火確認
 
-        if(!rawInput) {
-            alert("データを入力してください");
-            return;
-        }
+        const execBtn = document.getElementById('execBtn');
+        execBtn.addEventListener('click', run); // イベントリスナーをaddEventListenerで設定
 
-        btn.innerText = "⏳ 環境連動演算中...";
+        function run() {
+            console.log("run() function called");
+            const rawInput = document.getElementById('raw').value.trim();
+            const btn = document.getElementById('execBtn');
 
-        setTimeout(() => {
-            try {
-                const lines = rawInput.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 2);
-                let hList =[];
-
-                for(let line of lines) {
-                    const parts = line.split(/\s+/);
-                    if (parts.length < 3) continue;
-
-                    const no = parts[0];
-                    const name = parts[1];
-                    const pop = parseInt(parts[2]);
-                    const odds = parseFloat(parts[3]);
-                    const rScore = parseFloat(parts[4]);
-
-                    hList.push({ no, name, pop, odds, score: rScore });
-                }
-
-                let jiku = hList[0];
-
-                if (modeA && hList[0].pop === 1) {
-                    jiku = hList[1];
-                }
-
-                console.log("modeA:", modeA, "modeW:", modeW);
-                console.log("hList:", hList);
-                console.log("jiku:", jiku);
-
-                let betHtml = `【推奨軸】 ${jiku.no} (${jiku.name}) ${jiku.pop}人/${jiku.odds}倍\n\n`;
-                document.getElementById('bet-output').innerHTML = betHtml;
-
-                btn.innerText = "🚀 スナイパー分析・買い目生成";
-
-            } catch (e) {
-                btn.innerText = "🚀 スナイパー分析・買い目生成";
-                alert("【エラー】\n" + e.message);
+            if(!rawInput) {
+                alert("データを入力してください");
+                return;
             }
-        }, 100);
-    }
+
+            btn.innerText = "⏳ 環境連動演算中...";
+
+            setTimeout(() => {
+                try {
+                    const lines = rawInput.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 2);
+                    let hList =[];
+
+                    for(let line of lines) {
+                        const parts = line.split(/\s+/);
+                        if (parts.length < 3) continue;
+
+                        const no = parts[0];
+                        const name = parts[1];
+                        const pop = parseInt(parts[2]);
+                        const odds = parseFloat(parts[3]);
+                        const rScore = parseFloat(parts[4]);
+
+                        hList.push({ no, name, pop, odds, score: rScore });
+                    }
+
+                    let jiku = hList[0];
+
+                    if (modeA && hList[0].pop === 1) {
+                        jiku = hList[1];
+                    }
+
+                    console.log("modeA:", modeA, "modeW:", modeW);
+                    console.log("hList:", hList);
+                    console.log("jiku:", jiku);
+
+                    let betHtml = `【推奨軸】 ${jiku.no} (${jiku.name}) ${jiku.pop}人/${jiku.odds}倍\n\n`;
+                    document.getElementById('bet-output').innerHTML = betHtml;
+
+                    btn.innerText = "🚀 スナイパー分析・買い目生成";
+
+                } catch (e) {
+                    btn.innerText = "🚀 スナイパー分析・買い目生成";
+                    alert("【エラー】\n" + e.message);
+                }
+            }, 100);
+        }
+    });
 </script>
 </body>
 </html>
